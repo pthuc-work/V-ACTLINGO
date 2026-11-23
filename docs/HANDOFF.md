@@ -50,7 +50,7 @@ Tài liệu này là nguồn sự thật bàn giao kỹ thuật giữa Đợt 1 
 - Logic tính điểm làm bài tương tác, chọn đáp án, bấm nộp bài, hiện giải thích chi tiết khi làm (Đợt 2).
 - Bản đồ lộ trình Canvas uốn lượn Candy Crush thật (Đợt 2).
 - Hệ thống streak logic hàng ngày theo múi giờ `Asia/Ho_Chi_Minh`, trừ lượt đóng băng thật khi bỏ lỡ ngày (Đợt 2).
-- Bảng tra cứu điểm chuẩn Bách Khoa 2026 tương tác tìm kiếm và chọn ngành mục tiêu (Đợt 2).
+- Bảng tra cứu điểm chuẩn Bách Khoa 2026: Đã hoàn thiện 100% dữ liệu chính thức chuẩn xác từ 2 tập tin trích xuất trong `logo_diemchuan/` (gồm 29 ngành Tiêu chuẩn/Đại trà và 7 chuyên ngành Kỹ sư Chất lượng cao Việt – Pháp PFIEV), logo chính thức `logobachkhoa.webp` đã được tích hợp vào toàn bộ thanh điều hướng, favicon và PWA. Ngành mục tiêu đồng bộ qua `useTargetMajorStore` (mặc định 106 Khoa học Máy tính 85.45 ⭐, bấm đổi trực tiếp trên bảng điểm).
 - Trình nhập liệu đề bằng AI chatbot không tốn API (Đợt 3).
 - Kéo thả sắp xếp danh mục và tính năng sao lưu/phục hồi file JSON trên UI quản lý (Đợt 3).
 
