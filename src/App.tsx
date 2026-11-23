@@ -1,9 +1,40 @@
 import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AppShell } from './components/layout/AppShell';
+import { ToastProvider } from './components/ui';
+import {
+  RoadmapPage,
+  PracticePage,
+  CompletionPage,
+  WelcomePage,
+  BenchmarkPage,
+  ImportPage,
+  FormulaPage,
+  ManagePage,
+  SettingsPage,
+  NotFoundPage,
+} from './pages';
 
 export default function App() {
   return (
-    <div className="flex items-center justify-center min-h-screen bg-brand-bg text-slate-800 dark:text-slate-100">
-      <h1 className="text-2xl font-bold">V-ACT HUB Starting...</h1>
-    </div>
+    <BrowserRouter>
+      <ToastProvider>
+        <AppShell>
+          <Routes>
+            <Route path="/" element={<RoadmapPage />} />
+            <Route path="/roadmap" element={<Navigate to="/" replace />} />
+            <Route path="/practice" element={<PracticePage />} />
+            <Route path="/completion" element={<CompletionPage />} />
+            <Route path="/welcome" element={<WelcomePage />} />
+            <Route path="/benchmark" element={<BenchmarkPage />} />
+            <Route path="/import" element={<ImportPage />} />
+            <Route path="/formulas" element={<FormulaPage />} />
+            <Route path="/manage" element={<ManagePage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </AppShell>
+      </ToastProvider>
+    </BrowserRouter>
   );
 }

@@ -3,12 +3,36 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/icons/bk-logo.svg" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="alternate icon" type="image/png" href="/icons/favicon-32x32.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#1a237e" />
     <meta name="description" content="V-ACT HUB - Nền tảng luyện đề ĐHQG-HCM phong cách Duolingo" />
     <title>V-ACT HUB - Luyện thi ĐHQG-HCM</title>
+
+    <!-- Google Fonts: Nunito -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+    <!-- No-flash Theme Script -->
+    <script>
+      (function() {
+        try {
+          const storedTheme = localStorage.getItem('vact_theme');
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (storedTheme === 'dark' || (!storedTheme && prefersDark) || (storedTheme === 'system' && prefersDark)) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {
+          // ignore localStorage access errors
+        }
+      })();
+    </script>
   </head>
-  <body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+  <body class="bg-brand-bg text-surface-primary antialiased min-h-screen selection:bg-brand-blue-light selection:text-brand-blue">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
