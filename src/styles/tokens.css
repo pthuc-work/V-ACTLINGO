@@ -1,0 +1,23 @@
+:root {
+  --brand-bg: #f8fafc;
+  --brand-card: #ffffff;
+  --brand-navy: #0f172a;
+  --brand-blue: #2563eb;
+  --brand-yellow: #f59e0b;
+  --brand-green: #10b981;
+  --brand-red: #ef4444;
+  --brand-gray: #64748b;
+  --brand-border: #e2e8f0;
+}
+
+.dark {
+  --brand-bg: #0b1120;
+  --brand-card: #1e293b;
+  --brand-navy: #020617;
+  --brand-blue: #3b82f6;
+  --brand-yellow: #fbbf24;
+  --brand-green: #34d399;
+  --brand-red: #f87171;
+  --brand-gray: #94a3b8;
+  --brand-border: #334155;
+}
