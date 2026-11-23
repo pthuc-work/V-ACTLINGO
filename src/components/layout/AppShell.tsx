@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, Link } from 'react-router-dom';
 import {
   Compass,
   Sparkles,
@@ -21,6 +21,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore';
+import { useTargetMajorStore } from '../../store/targetMajorStore';
 import { Button, Card, Chip, Modal, ProgressBar, Toggle } from '../ui';
 
 interface NavItem {
@@ -46,9 +47,12 @@ interface AppShellProps {
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const location = useLocation();
   const { effectiveTheme, toggleTheme } = useThemeStore();
+  const { getTargetMajor } = useTargetMajorStore();
   const [isShortcutModalOpen, setIsShortcutModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRightDrawerOpen, setIsRightDrawerOpen] = useState(false);
+
+  const targetMajor = getTargetMajor();
 
   // Mocked state for widgets (can be bound to stats store in Phase 2)
   const streakDays = 5;
@@ -73,7 +77,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <img src="/icons/bk-logo.svg" alt="BK TP.HCM" className="w-8 h-8 rounded-xl shadow-sm" />
+            <img src="/icons/logobachkhoa.webp" alt="BK TP.HCM" className="w-8 h-8 object-contain drop-shadow-sm" />
             <div className="leading-tight">
               <span className="font-black text-base text-brand-navy dark:text-brand-blue tracking-tight block">
                 V-ACT HUB
@@ -120,9 +124,9 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           {/* Logo & Brand */}
           <div className="flex items-center gap-3 px-3 mb-8">
             <img
-              src="/icons/bk-logo.svg"
+              src="/icons/logobachkhoa.webp"
               alt="BK TP.HCM"
-              className="w-11 h-11 rounded-2xl shadow-sm border border-brand-border/60"
+              className="w-11 h-11 object-contain drop-shadow-sm"
             />
             <div>
               <h1 className="font-black text-xl text-brand-navy dark:text-brand-blue tracking-tight leading-none">
@@ -289,30 +293,41 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           </Card>
 
           {/* Target Major Card (Bách Khoa TP.HCM) */}
-          <Card variant="flat" padding="md" className="border-brand-blue/30 bg-brand-blue-light/30 dark:bg-brand-blue-light/10">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-brand-navy text-white shrink-0 mt-0.5">
-                <GraduationCap className="w-5 h-5 text-brand-yellow" />
-              </div>
-              <div className="flex-1">
-                <span className="text-[10px] font-black uppercase tracking-wider text-brand-blue block">
-                  Ngành mục tiêu 2026
-                </span>
-                <h4 className="text-sm font-black text-surface-primary mt-0.5">
-                  Khoa học Máy tính (106)
-                </h4>
-                <p className="text-xs font-extrabold text-surface-secondary mt-0.5">
-                  ĐH Bách Khoa TP.HCM
-                </p>
-                <div className="mt-2 flex items-center justify-between pt-2 border-t border-brand-border/60">
-                  <span className="text-xs font-bold text-surface-muted">Điểm chuẩn tham khảo:</span>
-                  <span className="text-xs font-black text-amber-500 bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 rounded-md">
-                    85.45 ⭐
-                  </span>
+          <Link to="/benchmark" className="block group">
+            <Card
+              variant="flat"
+              padding="md"
+              className="border-brand-blue/30 bg-brand-blue-light/30 dark:bg-brand-blue-light/10 hover:border-brand-blue hover:shadow-md transition-all"
+            >
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-brand-navy text-white shrink-0 mt-0.5 flex items-center justify-center">
+                  <img src="/icons/logobachkhoa.webp" alt="BK TP.HCM" className="w-5 h-5 object-contain" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-brand-blue block">
+                      Ngành mục tiêu 2026
+                    </span>
+                    <span className="text-[10px] font-bold text-surface-muted group-hover:text-brand-blue transition-colors">
+                      Đổi &rarr;
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-black text-surface-primary mt-0.5 truncate" title={targetMajor.name}>
+                    {targetMajor.name} ({targetMajor.code})
+                  </h4>
+                  <p className="text-xs font-extrabold text-surface-secondary mt-0.5">
+                    ĐH Bách Khoa TP.HCM
+                  </p>
+                  <div className="mt-2 flex items-center justify-between pt-2 border-t border-brand-border/60">
+                    <span className="text-xs font-bold text-surface-muted">Điểm chuẩn tham khảo:</span>
+                    <span className="text-xs font-black text-amber-500 bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      {targetMajor.benchmark.toFixed(2)} ⭐
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          </Link>
         </aside>
       </div>
 
@@ -359,7 +374,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           <div className="relative w-4/5 max-w-xs bg-brand-card h-full p-6 flex flex-col z-10 border-r border-brand-border shadow-2xl animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-brand-border">
               <div className="flex items-center gap-2.5">
-                <img src="/icons/bk-logo.svg" alt="BK TP.HCM" className="w-9 h-9 rounded-xl" />
+                <img src="/icons/logobachkhoa.webp" alt="BK TP.HCM" className="w-9 h-9 object-contain" />
                 <span className="font-black text-lg text-brand-navy dark:text-brand-blue">
                   V-ACT HUB
                 </span>
