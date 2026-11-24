@@ -23,3 +23,20 @@ Lưu bằng IndexedDB + LocalStorage; sao lưu JSON cũ chỉ lưu library. Ph�
 - Công nghệ: React + Vite + TypeScript, backend Supabase (đăng nhập + đồng bộ nhiều máy). Deploy Netlify/Vercel.
 - Dùng một mình lúc đầu, sau mở rộng cho nhiều người: mỗi dòng dữ liệu có `user_id`, bật Row Level Security; bộ đề có trường chế độ chia sẻ (mặc định riêng tư, chỉ để sẵn, chưa làm giao diện).
 - Backend lưu: thư viện (môn/chuyên đề/bài/câu/đoạn văn), tiến độ từng bài, sao, XP, streak, câu sai, cài đặt.
+
+## 3. Cập nhật Đợt 2: Học và Chơi (Đã hoàn thiện)
+
+- Đã hoàn thiện toàn bộ luồng tương tác học tập: Lộ trình Candy Crush uốn lượn SVG mở hoàn toàn (không khóa node), Màn làm bài (2 chế độ Luyện tập xem ngay / Thi thử nộp bài, lưới 5 cột lọc câu hỏi, hỗ trợ đoạn văn đọc hiểu và hình ảnh, phím tắt A-D/1-4/arrows/F, nhãn AI & sửa đáp án tức thì, tự lưu `resume_state`), Màn hoàn thành (3 sao, thẻ thống kê, pháo giấy, xuất phiếu điểm TXT).
+- Hoàn thiện game mechanics: Sao (50/70/90%), XP (+10 câu đúng lượt đầu, +20 hoàn thành, +10 sao mới), Streak múi giờ Việt Nam Asia/Ho_Chi_Minh (làm >=1 bài/ngày), 3 lượt đóng băng tuần làm mới mỗi thứ Hai + lượt dự trữ nhận từ rương chuyên đề (+50 XP, +1 lượt dự trữ vĩnh viễn).
+- Bảng điểm chuẩn Bách Khoa 2026 chính thức (29 ngành đại trà, 7 ngành PFIEV) với cơ chế lưu `{program, code, key}` đồng bộ đa thiết bị.
+- Hệ thống hỗ trợ học tập: Ôn câu sai (rút khỏi danh sách khi đúng 2 lần liên tiếp), Thống kê Category (điểm mạnh >=80%, điểm yếu <60%), Nhắc ôn bài cũ Spaced Repetition (1/3/7/14 ngày), Sổ tay công thức KaTeX/mhchem và Hiệu ứng âm thanh procedural Web Audio API.
+
+## 4. Cập nhật Đợt 3: Import và Quản lý (Đã hoàn thiện trọn vẹn)
+
+- Đã hoàn thiện quy trình nhập liệu không tốn API: Trình tạo prompt chuẩn cho Chatbot (`promptBuilder.ts`), bộ phân tích và tự sửa lỗi JSON thông minh (`parseAndRepair.ts` xử lý markdown fence, LaTeX escape `\\`, ký tự xuống dòng thô, nháy cong, tự động khôi phục JSON bị cắt cụt giữa chừng), hỗ trợ ghép nối nhiều phần (`multipart.ts`).
+- Màn hình Import trực quan 3 tab: Tạo Prompt -> Nhập JSON (minh bạch nhật ký sửa lỗi) -> Xem trước & Sửa 2 cột với `<RichText>` KaTeX, Modal Nhập đáp án nhanh (`quickAnswerInput.ts` đa định dạng, ghi đè AI, bảng so sánh diffs), Modal cắt/tải hình ảnh (`figureCrop.ts` cắt trực quan từ PDF gốc qua canvas). Nối thành công các ô "đám mây" từ Lộ trình tự điền môn/chuyên đề.
+- Cây quản lý môn/chuyên đề/bài học (`ManagePage.tsx`): Kéo thả trực quan VÀ nút Lên/Xuống bấm nhạy trên mobile, đổi tên, xóa có hộp cảnh báo chi tiết, chuyển bài sang chuyên đề khác, đồng bộ ngay với Lộ trình, trình sửa câu hỏi nhanh.
+- Hệ thống Sao lưu & Khôi phục JSON đầy đủ (`backupService.ts`): Xuất file chuẩn `vact-backup-YYYYMMDD-HHmm.json` (tuyệt đối không chứa API key), khôi phục với 2 chế độ "Thay thế toàn bộ" và "Gộp thông minh" (`Math.max` số sao), đọc và chuyển đổi tự động file backup của app cũ `V-ACT_app.html`.
+- Cài đặt, PWA và API Gemini: Trang Cài đặt hoàn thiện, hướng dẫn cài PWA Shortcut cho Desktop/Android/iOS kèm nút cài đặt trực tiếp, module Gemini API (`geminiProvider.ts`) ẩn sau feature flag `VITE_ENABLE_GEMINI=false` lưu key duy nhất tại `localStorage`.
+- Toàn bộ 158 tests Vitest (13 suites) pass 100%, build production thành công sạch sẽ.
+

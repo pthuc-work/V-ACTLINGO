@@ -1,97 +1,138 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Trophy, ShieldCheck, ArrowRight, GraduationCap, Flame, BookOpen } from 'lucide-react';
+import { Sparkles, Trophy, ArrowRight, GraduationCap, Star, Quote, Compass } from 'lucide-react';
 import { Button, Card, Chip } from '../components/ui';
+import { useTargetMajorStore } from '../store/targetMajorStore';
 
 export const WelcomePage: React.FC = () => {
   const navigate = useNavigate();
+  const { getTargetMajor } = useTargetMajorStore();
+  const targetMajor = getTargetMajor();
+
+  const handleStartLearning = () => {
+    sessionStorage.setItem('vact_welcomed_session', 'true');
+    navigate('/');
+  };
+
+  const handleViewBenchmark = () => {
+    sessionStorage.setItem('vact_welcomed_session', 'true');
+    navigate('/benchmark');
+  };
+
+  const handleChangeTarget = () => {
+    sessionStorage.setItem('vact_welcomed_session', 'true');
+    navigate('/benchmark');
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] max-w-3xl mx-auto w-full py-8 text-center">
-      {/* Hero Badge */}
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-6rem)] max-w-2xl mx-auto w-full py-8 px-4 text-center">
+      {/* BK Top Logo & Badge */}
       <div className="flex items-center gap-2 mb-4">
         <Chip variant="primary" size="sm" icon={<Sparkles className="w-3.5 h-3.5" />}>
-          PHIÊN BẢN 2026
+          TUYỂN SINH 2026
         </Chip>
         <Chip variant="yellow" size="sm">
           ĐHQG TP.HCM · ĐH BÁCH KHOA
         </Chip>
       </div>
 
-      {/* Mascot / Logo illustration */}
       <div className="relative mb-6">
-        <img
-          src="/icons/bk-logo.svg"
-          alt="BK TP.HCM"
-          className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl shadow-pop mx-auto border-4 border-brand-border/60"
-        />
+        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-brand-navy p-4 mx-auto shadow-pop border-4 border-brand-border flex items-center justify-center">
+          <img
+            src="/icons/logobachkhoa.webp"
+            alt="Đại học Bách Khoa - ĐHQG TP.HCM"
+            className="w-full h-full object-contain"
+          />
+        </div>
         <span className="absolute -bottom-2 -right-2 p-2 rounded-2xl bg-brand-yellow text-slate-900 border-2 border-white dark:border-slate-900 shadow-md">
           <Trophy className="w-5 h-5 fill-current" />
         </span>
       </div>
 
       {/* Main Title */}
-      <h1 className="text-3xl sm:text-5xl font-black text-brand-navy dark:text-brand-blue tracking-tight leading-tight">
-        Luyện thi V-ACT ĐHQG-HCM <br />
-        <span className="text-brand-yellow">Phong cách Duolingo</span>
+      <h1 className="text-3xl sm:text-4xl font-black text-brand-navy dark:text-brand-blue tracking-tight leading-tight">
+        Chào mừng bạn đến với <br />
+        <span className="text-brand-yellow">V-ACT Lingo 2026</span>
       </h1>
 
-      <p className="text-sm sm:text-base font-bold text-surface-secondary mt-3 max-w-xl leading-relaxed">
-        Hệ thống luyện trắc nghiệm đánh giá năng lực ĐHQG TP.HCM với lộ trình không khóa bài, streak bảo lưu linh hoạt, tích hợp KaTeX và tóm tắt kiến thức thông minh.
-      </p>
-
-      {/* Feature Highlights Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 w-full my-8 text-left">
-        <Card variant="3d" padding="md">
-          <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-500 w-fit mb-2">
-            <Flame className="w-5 h-5 fill-current" />
-          </div>
-          <h4 className="text-sm font-black text-surface-primary">Streak linh hoạt</h4>
-          <p className="text-xs font-semibold text-surface-secondary mt-1">
-            Không lo mất tim, bảo lưu chuỗi học với 3 lượt đóng băng mỗi tuần.
-          </p>
-        </Card>
-
-        <Card variant="3d" padding="md">
-          <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-brand-blue w-fit mb-2">
-            <BookOpen className="w-5 h-5" />
-          </div>
-          <h4 className="text-sm font-black text-surface-primary">Lộ trình bài bản</h4>
-          <p className="text-xs font-semibold text-surface-secondary mt-1">
-            130+ câu hỏi Tiếng Anh & Tiếng Việt chuẩn hóa kèm công thức và giải thích chi tiết.
-          </p>
-        </Card>
-
-        <Card variant="3d" padding="md">
-          <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-brand-green w-fit mb-2">
-            <GraduationCap className="w-5 h-5" />
-          </div>
-          <h4 className="text-sm font-black text-surface-primary">Mục tiêu Bách Khoa</h4>
-          <p className="text-xs font-semibold text-surface-secondary mt-1">
-            Tra cứu điểm chuẩn BK 2026 tất cả ngành Đại trà và PFIEV nhanh chóng.
-          </p>
-        </Card>
+      {/* Motivation Quote */}
+      <div className="relative mt-4 mb-6 p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-brand-blue/30 max-w-xl mx-auto">
+        <Quote className="w-5 h-5 text-brand-blue mb-1 mx-auto opacity-70" />
+        <p className="text-sm sm:text-base font-extrabold text-brand-navy dark:text-blue-100 italic leading-relaxed">
+          &ldquo;Khát vọng vươn lên đỉnh cao tri thức Bách Khoa — Mỗi câu hỏi hoàn thành hôm nay là một bước vững vàng chạm tới ước mơ giảng đường.&rdquo;
+        </p>
       </div>
 
-      {/* CTA Buttons */}
-      <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+      {/* Target Major Card */}
+      <Card
+        variant="3d"
+        padding="lg"
+        className="w-full mb-8 text-left bg-gradient-to-br from-brand-card via-amber-50/20 to-blue-50/20 dark:from-brand-card dark:via-amber-950/10 dark:to-blue-950/10 border-2 border-brand-yellow/60"
+      >
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="p-3 rounded-2xl bg-brand-navy text-white shrink-0 flex items-center justify-center shadow-sm">
+              <img src="/icons/logobachkhoa.webp" alt="BK TP.HCM" className="w-8 h-8 object-contain" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-black uppercase tracking-wider text-brand-blue">
+                  MỤC TIÊU CỦA BẠN (BK 2026)
+                </span>
+                <Chip variant={targetMajor.program === 'pfiev' ? 'primary' : 'neutral'} size="sm">
+                  {targetMajor.program === 'pfiev' ? 'PFIEV Kỹ sư chất lượng cao' : 'Đại trà'}
+                </Chip>
+              </div>
+              <h3 className="text-lg sm:text-xl font-black text-surface-primary mt-1">
+                {targetMajor.name}
+              </h3>
+              <p className="text-xs font-bold text-surface-secondary mt-0.5">
+                Mã ngành: <strong className="text-brand-blue">{targetMajor.code}</strong> • Đại học Bách Khoa - ĐHQG TP.HCM
+              </p>
+            </div>
+          </div>
+
+          <div className="text-left sm:text-right shrink-0">
+            <span className="text-[11px] font-black uppercase tracking-wider text-surface-secondary block">
+              Điểm chuẩn 2026
+            </span>
+            <span className="text-2xl sm:text-3xl font-black text-amber-500 flex items-center gap-1 mt-0.5">
+              {targetMajor.benchmark.toFixed(2)}
+              <Star className="w-6 h-6 fill-amber-400 text-amber-400" />
+            </span>
+          </div>
+        </div>
+      </Card>
+
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full">
         <Button
-          variant="primary"
+          variant="yellow"
           size="lg"
           rightIcon={<ArrowRight className="w-5 h-5" />}
-          onClick={() => navigate('/')}
-          className="w-full sm:w-auto min-w-[200px]"
+          onClick={handleStartLearning}
+          className="w-full sm:w-auto min-w-[200px] text-base font-black shadow-pop"
         >
-          Bắt đầu luyện ngay
+          BẮT ĐẦU HỌC
         </Button>
+
         <Button
           variant="outline"
           size="lg"
           leftIcon={<GraduationCap className="w-5 h-5 text-brand-blue" />}
-          onClick={() => navigate('/benchmark')}
-          className="w-full sm:w-auto"
+          onClick={handleViewBenchmark}
+          className="w-full sm:w-auto font-bold"
         >
-          Tra cứu điểm chuẩn BK
+          Xem bảng điểm chuẩn
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="lg"
+          onClick={handleChangeTarget}
+          className="w-full sm:w-auto text-brand-blue font-bold hover:bg-brand-blue-light/40"
+        >
+          Đổi mục tiêu
         </Button>
       </div>
     </div>

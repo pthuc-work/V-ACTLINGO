@@ -185,6 +185,8 @@ function toSetProgress(row: any): SetProgress {
     position: row.position,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    resume_state: row.resume_state ?? null,
+    resumeState: row.resume_state ?? null,
   };
 }
 
@@ -200,6 +202,9 @@ function fromSetProgress(item: Partial<SetProgress>): any {
   if (item.attemptsCount !== undefined) row.attempts_count = item.attemptsCount;
   if (item.lastAttemptedAt !== undefined) row.last_attempted_at = item.lastAttemptedAt;
   if (item.position !== undefined) row.position = item.position;
+  if ((item as any).resume_state !== undefined || (item as any).resumeState !== undefined) {
+    row.resume_state = (item as any).resume_state ?? (item as any).resumeState;
+  }
   return row;
 }
 
@@ -946,6 +951,15 @@ export class SupabaseRepository implements DataRepository {
     } catch {
       await syncQueueManager.enqueue('settings', 'UPDATE', updatedLocal.id, row);
       return updatedLocal;
+    }
+  }
+
+  async saveSettings(settings: Partial<UserSettings> & Partial<UserStats>): Promise<void> {
+    await this.updateSettings(settings);
+    const statsKeys: Array<keyof UserStats> = ['targetMajorCode', 'targetMajorName', 'targetScore', 'dailyGoalXp'];
+    const hasStats = statsKeys.some((k) => k in settings);
+    if (hasStats) {
+      await this.updateUserStats(settings as Partial<UserStats>);
     }
   }
 

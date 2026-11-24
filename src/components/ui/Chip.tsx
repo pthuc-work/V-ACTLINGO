@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type ChipVariant = 'primary' | 'yellow' | 'success' | 'danger' | 'neutral' | 'ai' | 'verified';
+export type ChipVariant = 'primary' | 'yellow' | 'warning' | 'success' | 'danger' | 'neutral' | 'ai' | 'verified';
 export type ChipSize = 'sm' | 'md';
 
 export interface ChipProps extends React.HTMLAttributes<HTMLSpanElement> {
@@ -31,6 +31,9 @@ export const Chip: React.FC<ChipProps> = ({
       ? 'bg-brand-blue text-white border-brand-blue shadow-sm'
       : 'bg-brand-blue-light text-brand-blue border-brand-blue/30 dark:bg-brand-blue-light/50',
     yellow: active
+      ? 'bg-brand-yellow text-slate-900 border-brand-yellow font-black shadow-sm'
+      : 'bg-brand-yellow-light text-amber-700 dark:text-brand-yellow border-brand-yellow/40',
+    warning: active
       ? 'bg-brand-yellow text-slate-900 border-brand-yellow font-black shadow-sm'
       : 'bg-brand-yellow-light text-amber-700 dark:text-brand-yellow border-brand-yellow/40',
     success: 'bg-brand-green-soft text-emerald-700 dark:text-brand-green border-brand-green/30',

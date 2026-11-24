@@ -1,26 +1,74 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { BENCHMARK_2026_MAJORS, Major } from '../data/benchmarkData';
+import { BK_SCORES_2026, BKMajorScore, DEFAULT_TARGET_MAJOR, ProgramType } from '../data/bkScores';
+import { getRepository } from '../data';
 
-interface TargetMajorState {
-  targetCode: string;
-  setTargetCode: (code: string) => void;
-  getTargetMajor: () => Major;
+export interface TargetMajorState {
+  program: ProgramType;
+  code: string;
+  key: string;
+  targetCode: string; // compatibility with earlier views
+  setTargetMajor: (target: { program: ProgramType; code: string; key: string }) => void;
+  setTargetCode: (codeOrKey: string) => void;
+  getTargetMajor: () => BKMajorScore;
 }
 
 export const useTargetMajorStore = create<TargetMajorState>()(
   persist(
     (set, get) => ({
-      targetCode: '106', // Default: 106 Khoa học Máy tính 85.45
-      setTargetCode: (code: string) => set({ targetCode: code }),
+      program: 'standard',
+      code: '106',
+      key: '106',
+      targetCode: '106',
+
+      setTargetMajor: (target) => {
+        const found =
+          BK_SCORES_2026.find((m) => m.key === target.key || m.code === target.code) ||
+          DEFAULT_TARGET_MAJOR;
+
+        set({
+          program: found.program,
+          code: found.code,
+          key: found.key,
+          targetCode: found.code,
+        });
+
+        // Sync with repository
+        try {
+          const repo = getRepository() as any;
+          const payload = {
+            targetMajorCode: found.code,
+            targetMajorName: found.name,
+            targetScore: found.benchmark,
+          };
+          if (typeof repo.saveSettings === 'function') {
+            repo.saveSettings(payload).catch?.(() => {});
+          } else if (typeof repo.updateUserStats === 'function') {
+            repo.updateUserStats(payload).catch?.(() => {});
+          }
+        } catch (err) {
+          console.warn('Could not sync target major to repository:', err);
+        }
+      },
+
+      setTargetCode: (codeOrKey: string) => {
+        const found =
+          BK_SCORES_2026.find((m) => m.key === codeOrKey || m.code === codeOrKey) ||
+          DEFAULT_TARGET_MAJOR;
+
+        get().setTargetMajor({
+          program: found.program,
+          code: found.code,
+          key: found.key,
+        });
+      },
+
       getTargetMajor: () => {
-        const { targetCode } = get();
-        const found = BENCHMARK_2026_MAJORS.find((m) => m.code === targetCode);
-        return (
-          found ||
-          BENCHMARK_2026_MAJORS.find((m) => m.code === '106') ||
-          BENCHMARK_2026_MAJORS[0]
-        );
+        const { key, code, targetCode } = get();
+        const found =
+          BK_SCORES_2026.find((m) => m.key === key || m.code === code || m.code === targetCode) ||
+          DEFAULT_TARGET_MAJOR;
+        return found;
       },
     }),
     {

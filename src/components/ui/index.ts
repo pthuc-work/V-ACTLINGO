@@ -8,3 +8,4 @@ export * from './Tabs';
 export * from './StarRating';
 export * from './Toast';
 export * from './RichText';
+export * from './Confetti';

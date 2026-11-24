@@ -78,6 +78,15 @@ export interface Question {
   updatedAt: string;
 }
 
+export interface ResumeState {
+  currentQuestionIndex: number;
+  answers: Record<string, number | null>; // questionId -> selectedIndex
+  flags: Record<string, boolean>; // questionId -> boolean
+  mode?: 'practice' | 'exam';
+  timeSpentSeconds?: number;
+  submitted?: boolean;
+}
+
 export interface SetProgress {
   id: string;
   userId: string;
@@ -91,6 +100,8 @@ export interface SetProgress {
   position: number;
   createdAt: string;
   updatedAt: string;
+  resume_state?: ResumeState | null;
+  resumeState?: ResumeState | null;
 }
 
 export interface QuestionAttempt {
@@ -182,6 +193,7 @@ export interface FullBackupData {
   questionAttempts: QuestionAttempt[];
   userStats: UserStats;
   settings: UserSettings;
+  topicChestFlags?: string[];
 }
 
 // ==============================================================================

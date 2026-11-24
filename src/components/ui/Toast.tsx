@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 export type ToastType = 'info' | 'success' | 'warning' | 'error';
@@ -12,6 +12,7 @@ export interface ToastItem {
 
 interface ToastContextValue {
   toast: (message: React.ReactNode, type?: ToastType, duration?: number) => void;
+  showToast: (message: React.ReactNode, type?: ToastType, duration?: number) => void;
   success: (message: React.ReactNode, duration?: number) => void;
   error: (message: React.ReactNode, duration?: number) => void;
   warning: (message: React.ReactNode, duration?: number) => void;
@@ -41,13 +42,22 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [removeToast]
   );
 
-  const value: ToastContextValue = {
-    toast: addToast,
-    success: (msg, dur) => addToast(msg, 'success', dur),
-    error: (msg, dur) => addToast(msg, 'error', dur),
-    warning: (msg, dur) => addToast(msg, 'warning', dur),
-    info: (msg, dur) => addToast(msg, 'info', dur),
-  };
+  const success = useCallback((msg: React.ReactNode, dur?: number) => addToast(msg, 'success', dur), [addToast]);
+  const error = useCallback((msg: React.ReactNode, dur?: number) => addToast(msg, 'error', dur), [addToast]);
+  const warning = useCallback((msg: React.ReactNode, dur?: number) => addToast(msg, 'warning', dur), [addToast]);
+  const info = useCallback((msg: React.ReactNode, dur?: number) => addToast(msg, 'info', dur), [addToast]);
+
+  const value: ToastContextValue = useMemo(
+    () => ({
+      toast: addToast,
+      showToast: addToast,
+      success,
+      error,
+      warning,
+      info,
+    }),
+    [addToast, success, error, warning, info]
+  );
 
   return (
     <ToastContext.Provider value={value}>

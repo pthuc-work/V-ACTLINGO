@@ -12,8 +12,12 @@ interface ThemeState {
 const STORAGE_KEY = 'vact_theme';
 
 function getSystemPreference(): 'light' | 'dark' {
-  if (typeof window === 'undefined') return 'light';
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'light';
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  } catch {
+    return 'light';
+  }
 }
 
 function getInitialTheme(): ThemeMode {
@@ -45,15 +49,19 @@ applyThemeToDocument(initialEffective);
 
 export const useThemeStore = create<ThemeState>((set, get) => {
   // Listen to system changes if theme === 'system'
-  if (typeof window !== 'undefined') {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    mediaQuery.addEventListener('change', (e) => {
-      if (get().theme === 'system') {
-        const nextEffective = e.matches ? 'dark' : 'light';
-        applyThemeToDocument(nextEffective);
-        set({ effectiveTheme: nextEffective });
-      }
-    });
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    try {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      mediaQuery?.addEventListener?.('change', (e) => {
+        if (get().theme === 'system') {
+          const nextEffective = e.matches ? 'dark' : 'light';
+          applyThemeToDocument(nextEffective);
+          set({ effectiveTheme: nextEffective });
+        }
+      });
+    } catch {
+      // ignore
+    }
   }
 
   return {

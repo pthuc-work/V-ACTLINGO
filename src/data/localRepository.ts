@@ -535,6 +535,8 @@ export class LocalRepository implements DataRepository {
       position: progress.position ?? 0,
       createdAt: existing ? existing.createdAt : now,
       updatedAt: now,
+      resume_state: (progress as any).resume_state ?? (progress as any).resumeState ?? existing?.resume_state ?? (existing as any)?.resumeState ?? null,
+      resumeState: (progress as any).resumeState ?? (progress as any).resume_state ?? (existing as any)?.resumeState ?? existing?.resume_state ?? null,
     };
     await this.putStoreItem('setProgress', item);
     return item;
@@ -653,6 +655,16 @@ export class LocalRepository implements DataRepository {
     };
     await this.putStoreItem('settings', updated);
     return updated;
+  }
+
+  async saveSettings(settings: Partial<UserSettings> & Partial<UserStats>): Promise<void> {
+    await this.updateSettings(settings);
+    // Also update user stats fields if provided
+    const statsKeys: Array<keyof UserStats> = ['targetMajorCode', 'targetMajorName', 'targetScore', 'dailyGoalXp'];
+    const hasStats = statsKeys.some((k) => k in settings);
+    if (hasStats) {
+      await this.updateUserStats(settings as Partial<UserStats>);
+    }
   }
 
   // ----------------------------------------------------------------------------

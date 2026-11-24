@@ -13,6 +13,8 @@ import {
   ManagePage,
   SettingsPage,
   NotFoundPage,
+  ReviewPage,
+  StatsPage,
 } from './pages';
 
 export default function App() {
@@ -28,7 +30,10 @@ export default function App() {
             <Route path="/welcome" element={<WelcomePage />} />
             <Route path="/benchmark" element={<BenchmarkPage />} />
             <Route path="/import" element={<ImportPage />} />
+            <Route path="/formula" element={<FormulaPage />} />
             <Route path="/formulas" element={<FormulaPage />} />
+            <Route path="/review" element={<ReviewPage />} />
+            <Route path="/stats" element={<StatsPage />} />
             <Route path="/manage" element={<ManagePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFoundPage />} />

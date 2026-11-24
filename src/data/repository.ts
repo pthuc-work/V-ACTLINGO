@@ -88,6 +88,7 @@ export interface DataRepository {
 
   getSettings(): Promise<UserSettings>;
   updateSettings(settings: Partial<UserSettings>): Promise<UserSettings>;
+  saveSettings(settings: Partial<UserSettings> & Partial<UserStats>): Promise<void>;
 
   // ----------------------------------------------------------------------------
   // Backup, Migration & Utilities

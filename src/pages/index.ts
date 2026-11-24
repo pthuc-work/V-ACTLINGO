@@ -8,3 +8,5 @@ export * from './FormulaPage';
 export * from './ManagePage';
 export * from './SettingsPage';
 export * from './NotFoundPage';
+export * from './ReviewPage';
+export * from './StatsPage';

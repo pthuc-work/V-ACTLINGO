@@ -4,6 +4,7 @@ import { Star } from 'lucide-react';
 export interface StarRatingProps {
   stars?: number; // 0, 1, 2, 3
   percentage?: number; // auto-computes: >=50% => 1, >=70% => 2, >=90% => 3
+  maxStars?: number; // default 3
   size?: 'sm' | 'md' | 'lg' | 'xl';
   interactive?: boolean;
   onSelect?: (stars: number) => void;
