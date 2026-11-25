@@ -878,6 +878,9 @@ export class SupabaseRepository implements DataRepository {
   async getUserStats(): Promise<UserStats> {
     try {
       const userId = await this.getUserId();
+      if (userId === LOCAL_USER_ID) {
+        return this.localCache.getUserStats();
+      }
       const { data, error } = await this.client
         .from('user_stats')
         .select('*')
@@ -899,6 +902,9 @@ export class SupabaseRepository implements DataRepository {
   async updateUserStats(stats: Partial<UserStats>): Promise<UserStats> {
     const updatedLocal = await this.localCache.updateUserStats(stats);
     const userId = stats.userId || await this.getUserId();
+    if (userId === LOCAL_USER_ID) {
+      return updatedLocal;
+    }
     const row = fromUserStats({ ...stats, userId });
 
     try {
@@ -918,6 +924,9 @@ export class SupabaseRepository implements DataRepository {
   async getSettings(): Promise<UserSettings> {
     try {
       const userId = await this.getUserId();
+      if (userId === LOCAL_USER_ID) {
+        return this.localCache.getSettings();
+      }
       const { data, error } = await this.client
         .from('settings')
         .select('*')
@@ -939,6 +948,9 @@ export class SupabaseRepository implements DataRepository {
   async updateSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
     const updatedLocal = await this.localCache.updateSettings(settings);
     const userId = settings.userId || await this.getUserId();
+    if (userId === LOCAL_USER_ID) {
+      return updatedLocal;
+    }
     const row = fromSettings({ ...settings, userId });
 
     try {
@@ -992,8 +1004,11 @@ export class SupabaseRepository implements DataRepository {
   async saveFormulaGroup(group: FormulaGroup): Promise<void> {
     await this.localCache.saveFormulaGroup(group);
     try {
+      const userId = await this.getUserId();
+      if (userId === LOCAL_USER_ID) return;
       await this.client.from('formula_groups').upsert({
         id: group.id,
+        user_id: userId,
         topic_id: group.topicId,
         title: group.title,
         order: group.order,
@@ -1042,25 +1057,41 @@ export class SupabaseRepository implements DataRepository {
 
   private async syncLocalToRemote(): Promise<void> {
     try {
+      const user = await getCurrentUser();
+      if (!user) return;
+      const resolveUid = (uid?: string) => (!uid || uid === LOCAL_USER_ID ? user.id : uid);
+
       const subjects = await this.localCache.getSubjects();
       for (const s of subjects) {
-        await this.client.from('subjects').upsert(fromSubject(s));
+        await this.client.from('subjects').upsert(fromSubject({ ...s, userId: resolveUid(s.userId) }));
       }
       const topics = await this.localCache.getTopics();
       for (const t of topics) {
-        await this.client.from('topics').upsert(fromTopic(t));
+        await this.client.from('topics').upsert(fromTopic({ ...t, userId: resolveUid(t.userId) }));
       }
       const sets = await this.localCache.getSets();
       for (const st of sets) {
-        await this.client.from('sets').upsert(fromSet(st));
+        await this.client.from('sets').upsert(fromSet({ ...st, userId: resolveUid(st.userId) }));
       }
       const passages = await this.localCache.getPassages();
       for (const p of passages) {
-        await this.client.from('passages').upsert(fromPassage(p));
+        await this.client.from('passages').upsert(fromPassage({ ...p, userId: resolveUid(p.userId) }));
       }
       const questions = await this.localCache.getQuestions();
       for (const q of questions) {
-        await this.client.from('questions').upsert(fromQuestion(q));
+        await this.client.from('questions').upsert(fromQuestion({ ...q, userId: resolveUid(q.userId) }));
+      }
+      const formulaGroups = await this.localCache.getFormulaGroups();
+      for (const fg of formulaGroups) {
+        await this.client.from('formula_groups').upsert({
+          id: fg.id,
+          user_id: user.id,
+          topic_id: fg.topicId,
+          title: fg.title,
+          order: fg.order,
+          items: fg.items,
+          updated_at: new Date().toISOString(),
+        });
       }
     } catch (err) {
       console.warn('syncLocalToRemote failed:', err);

@@ -1003,12 +1003,26 @@ export const SettingsPage: React.FC = () => {
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        onSuccess={() => {
-          getCurrentUser().then((u) => {
-            if (u) setCurrentUserEmail(u.email || 'Học viên');
-          });
+        onSuccess={async () => {
+          const u = await getCurrentUser();
+          if (u) setCurrentUserEmail(u.email || 'Học viên');
           setAuthModalOpen(false);
-          refreshStats();
+          setSyncStatusMsg('Đang đồng bộ dữ liệu từ tài khoản Supabase...');
+          try {
+            const repo = getRepository();
+            await Promise.all([
+              repo.getSubjects(),
+              repo.getTopics(),
+              repo.getSets(),
+              repo.getAllSetProgress(),
+              repo.getUserStats(),
+              repo.getSettings(),
+            ]);
+            await refreshStats();
+            setSyncStatusMsg('Đã đăng nhập và đồng bộ dữ liệu thành công!');
+          } catch {
+            setSyncStatusMsg('Đã đăng nhập thành công.');
+          }
         }}
       />
     </div>

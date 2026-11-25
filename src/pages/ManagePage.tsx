@@ -24,6 +24,8 @@ import {
   Check,
   X,
   GripVertical,
+  Globe,
+  Lock,
 } from 'lucide-react';
 import { Button, Card, Chip, Modal, useToast } from '../components/ui';
 import { getRepository } from '../data';
@@ -265,6 +267,37 @@ export const ManagePage: React.FC = () => {
     }
 
     setDraggedItem(null);
+  };
+
+  // ----------------------------------------------------------------------------
+  // Toggle Public / Private Visibility
+  // ----------------------------------------------------------------------------
+  const handleToggleVisibility = async (
+    type: 'subject' | 'topic' | 'set',
+    id: string,
+    name: string,
+    currentVisibility?: string
+  ) => {
+    const nextVisibility = currentVisibility === 'public' ? 'private' : 'public';
+    try {
+      if (type === 'subject') {
+        await repo.updateSubject(id, { visibility: nextVisibility });
+        setSubjects((prev) => prev.map((s) => (s.id === id ? { ...s, visibility: nextVisibility } : s)));
+      } else if (type === 'topic') {
+        await repo.updateTopic(id, { visibility: nextVisibility });
+        setTopics((prev) => prev.map((t) => (t.id === id ? { ...t, visibility: nextVisibility } : t)));
+      } else {
+        await repo.updateSet(id, { visibility: nextVisibility });
+        setSets((prev) => prev.map((st) => (st.id === id ? { ...st, visibility: nextVisibility } : st)));
+      }
+      showSuccessToast(
+        nextVisibility === 'public'
+          ? `Đã chuyển "${name}" sang Công khai (mọi người dùng đều thấy).`
+          : `Đã chuyển "${name}" sang Riêng tư.`
+      );
+    } catch (err: any) {
+      showErrorToast('Không thể đổi chế độ hiển thị: ' + (err?.message || 'Lỗi không xác định'));
+    }
   };
 
   // ----------------------------------------------------------------------------
@@ -764,6 +797,29 @@ export const ManagePage: React.FC = () => {
                     </button>
                     <button
                       type="button"
+                      onClick={() => handleToggleVisibility('subject', subj.id, subj.name, subj.visibility)}
+                      className={`p-2 rounded-xl transition-colors text-xs font-bold flex items-center gap-1 ${
+                        subj.visibility === 'public'
+                          ? 'text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20'
+                          : 'text-surface-secondary hover:text-surface-primary hover:bg-brand-border/40'
+                      }`}
+                      title={
+                        subj.visibility === 'public'
+                          ? 'Đang Công khai (bấm để chuyển Riêng tư)'
+                          : 'Đang Riêng tư (bấm để Công khai cho mọi người dùng)'
+                      }
+                    >
+                      {subj.visibility === 'public' ? (
+                        <Globe className="w-4 h-4" />
+                      ) : (
+                        <Lock className="w-4 h-4" />
+                      )}
+                      <span className="hidden md:inline">
+                        {subj.visibility === 'public' ? 'Công khai' : 'Riêng tư'}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => openRenameModal('subject', subj.id, subj.name)}
                       className="p-2 rounded-xl text-surface-secondary hover:text-brand-blue hover:bg-brand-border/40 transition-colors"
                       title="Đổi tên môn học"
@@ -863,6 +919,26 @@ export const ManagePage: React.FC = () => {
                                 </button>
                                 <button
                                   type="button"
+                                  onClick={() => handleToggleVisibility('topic', topic.id, topic.name, topic.visibility)}
+                                  className={`p-1.5 rounded-lg transition-colors text-xs font-bold flex items-center gap-1 ${
+                                    topic.visibility === 'public'
+                                      ? 'text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20'
+                                      : 'text-surface-secondary hover:text-surface-primary hover:bg-brand-border/40'
+                                  }`}
+                                  title={
+                                    topic.visibility === 'public'
+                                      ? 'Đang Công khai (bấm để chuyển Riêng tư)'
+                                      : 'Đang Riêng tư (bấm để Công khai)'
+                                  }
+                                >
+                                  {topic.visibility === 'public' ? (
+                                    <Globe className="w-3.5 h-3.5" />
+                                  ) : (
+                                    <Lock className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => openRenameModal('topic', topic.id, topic.name)}
                                   className="p-1.5 rounded-lg text-surface-secondary hover:text-brand-blue hover:bg-brand-border/40"
                                   title="Đổi tên chuyên đề"
@@ -959,6 +1035,28 @@ export const ManagePage: React.FC = () => {
                                           >
                                             Sửa câu hỏi
                                           </Button>
+
+                                          {/* Công khai / Riêng tư Button */}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleToggleVisibility('set', setItem.id, setItem.name, setItem.visibility)}
+                                            className={`p-1.5 rounded-lg transition-colors ${
+                                              setItem.visibility === 'public'
+                                                ? 'text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20'
+                                                : 'text-surface-secondary hover:text-surface-primary hover:bg-brand-border/40'
+                                            }`}
+                                            title={
+                                              setItem.visibility === 'public'
+                                                ? 'Đang Công khai (bấm để chuyển Riêng tư)'
+                                                : 'Đang Riêng tư (bấm để Công khai)'
+                                            }
+                                          >
+                                            {setItem.visibility === 'public' ? (
+                                              <Globe className="w-3.5 h-3.5" />
+                                            ) : (
+                                              <Lock className="w-3.5 h-3.5" />
+                                            )}
+                                          </button>
 
                                           {/* Chuyển chuyên đề Button */}
                                           <button
