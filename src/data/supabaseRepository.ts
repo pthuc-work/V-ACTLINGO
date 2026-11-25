@@ -19,6 +19,7 @@ import {
   UserSettings,
   FullBackupData,
   V1ImportPackage,
+  FormulaGroup,
 } from './types';
 
 // ==============================================================================
@@ -960,6 +961,56 @@ export class SupabaseRepository implements DataRepository {
     const hasStats = statsKeys.some((k) => k in settings);
     if (hasStats) {
       await this.updateUserStats(settings as Partial<UserStats>);
+    }
+  }
+
+  // ----------------------------------------------------------------------------
+  // Formula Groups
+  // ----------------------------------------------------------------------------
+  async getFormulaGroups(topicId?: string): Promise<FormulaGroup[]> {
+    try {
+      let query = this.client.from('formula_groups').select('*');
+      if (topicId) {
+        query = query.eq('topic_id', topicId);
+      }
+      const { data, error } = await query.order('order', { ascending: true });
+      if (error || !data) {
+        return this.localCache.getFormulaGroups(topicId);
+      }
+      return data.map((row) => ({
+        id: row.id,
+        topicId: row.topic_id,
+        title: row.title,
+        order: row.order ?? 0,
+        items: row.items || [],
+      }));
+    } catch {
+      return this.localCache.getFormulaGroups(topicId);
+    }
+  }
+
+  async saveFormulaGroup(group: FormulaGroup): Promise<void> {
+    await this.localCache.saveFormulaGroup(group);
+    try {
+      await this.client.from('formula_groups').upsert({
+        id: group.id,
+        topic_id: group.topicId,
+        title: group.title,
+        order: group.order,
+        items: group.items,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.warn('saveFormulaGroup remote sync error, cached locally:', err);
+    }
+  }
+
+  async deleteFormulaGroup(id: string): Promise<void> {
+    await this.localCache.deleteFormulaGroup(id);
+    try {
+      await this.client.from('formula_groups').delete().eq('id', id);
+    } catch (err) {
+      console.warn('deleteFormulaGroup remote delete error, cached locally:', err);
     }
   }
 

@@ -12,6 +12,18 @@ dist
 dist-ssr
 *.local
 
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Windows shortcuts & batch files
+*.lnk
+*.bat
+
+# Backups
+jsonbackup/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

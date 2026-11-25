@@ -28,6 +28,7 @@ import { calculateSessionXP } from '../lib/game/xp';
 import { formatVietnamDate } from '../lib/game/dateUtils';
 import { playCorrectSound, playIncorrectSound, playLessonCompleteSound } from '../lib/sound';
 import { downloadScorecardFile, formatDuration } from '../lib/scorecard';
+import { FormulaModal } from '../components/formula/FormulaModal';
 
 type PracticeMode = 'practice' | 'exam';
 type MatrixFilter = 'all' | 'unanswered' | 'flagged' | 'incorrect';
@@ -57,6 +58,7 @@ export const PracticePage: React.FC = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [matrixFilter, setMatrixFilter] = useState<MatrixFilter>(initialFilter || 'all');
   const [overrideModalQId, setOverrideModalQId] = useState<string | null>(null);
+  const [isFormulaModalOpen, setIsFormulaModalOpen] = useState(false);
 
   // Resume state ref to prevent initial save loop
   const isLoadedRef = useRef(false);
@@ -693,6 +695,18 @@ export const PracticePage: React.FC = () => {
             <Clock className="w-4 h-4 text-brand-blue" />
             <span>{formatDuration(timeSpentSeconds)}</span>
           </div>
+
+          {/* Formula Modal Button */}
+          <button
+            type="button"
+            onClick={() => setIsFormulaModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-brand-blue/10 hover:bg-brand-blue/20 border border-brand-blue/30 text-brand-blue font-black text-xs sm:text-sm shrink-0 transition-colors"
+            title="Mở bảng công thức chuyên đề"
+            aria-label="Bảng công thức"
+          >
+            <BookOpen className="w-4 h-4" />
+            <span className="hidden md:inline">Công thức</span>
+          </button>
         </div>
 
         {/* Mobile Progress Bar */}
@@ -1143,6 +1157,13 @@ export const PracticePage: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* Formula Modal */}
+      <FormulaModal
+        isOpen={isFormulaModalOpen}
+        onClose={() => setIsFormulaModalOpen(false)}
+        topicId={currentSet?.topicId}
+      />
     </div>
   );
 };

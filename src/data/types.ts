@@ -118,6 +118,27 @@ export interface QuestionAttempt {
   updatedAt: string;
 }
 
+// ==============================================================================
+// Formula Groups & Items
+// ==============================================================================
+
+export interface FormulaItem {
+  id: string;
+  tag: string;
+  structure: string;
+  usage?: string;
+  example?: string;
+  note?: string;
+}
+
+export interface FormulaGroup {
+  id: string;
+  topicId: string;
+  title: string;
+  order: number;
+  items: FormulaItem[];
+}
+
 export interface UserStats {
   id: string;
   userId: string;
@@ -182,7 +203,7 @@ export interface V1ImportPackage {
 }
 
 export interface FullBackupData {
-  version: 1;
+  version: 1 | 2;
   exportedAt: string;
   subjects: Subject[];
   topics: Topic[];
@@ -194,6 +215,13 @@ export interface FullBackupData {
   userStats: UserStats;
   settings: UserSettings;
   topicChestFlags?: string[];
+  formulaGroups?: FormulaGroup[];
+  lastTopicBySubject?: Record<string, string>;
+  activeCurriculum?: {
+    selectedSubjectId: string | null;
+    selectedTopicId: string | null;
+    lastTopicBySubject: Record<string, string>;
+  };
 }
 
 // ==============================================================================

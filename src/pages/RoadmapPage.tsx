@@ -12,6 +12,7 @@ import {
   Award,
   ChevronRight,
   ShieldCheck,
+  Upload,
 } from 'lucide-react';
 import { Button, Card, Chip, StarRating, useToast } from '../components/ui';
 import { getRepository, isSeedDataLoaded, loadSeedData } from '../data';
@@ -24,6 +25,7 @@ import {
   isTopicChestClaimed,
   SetWithStars,
 } from '../lib/game';
+import { FormulaModal } from '../components/formula/FormulaModal';
 
 interface SetItemWithDetails {
   set: SetEntity;
@@ -38,7 +40,7 @@ interface SetItemWithDetails {
 export const RoadmapPage: React.FC = () => {
   const navigate = useNavigate();
   const { success: showSuccessToast, info: showInfoToast, error: showErrorToast } = useToast();
-  const { selectedSubjectId, selectedTopicId, setSelectedSubjectId, setSelectedTopicId } =
+  const { selectedSubjectId, selectedTopicId, selectSubject, setSelectedTopicId } =
     useCurriculumStore();
   const { stats, updateStats } = useUserStatsStore();
 
@@ -48,6 +50,7 @@ export const RoadmapPage: React.FC = () => {
   const [setsWithDetails, setSetsWithDetails] = useState<SetItemWithDetails[]>([]);
   const [claimedTopicIds, setClaimedTopicIds] = useState<string[]>([]);
   const [isClaimingChest, setIsClaimingChest] = useState(false);
+  const [isFormulaModalOpen, setIsFormulaModalOpen] = useState(false);
 
   // 1. Session Welcome Check (Shown once per browser session)
   useEffect(() => {
@@ -86,29 +89,29 @@ export const RoadmapPage: React.FC = () => {
 
         const subjects = await repo.getSubjects();
         if (subjects.length === 0) {
+          setCurrentSubject(null);
+          setCurrentTopic(null);
+          setSetsWithDetails([]);
           setLoading(false);
           return;
         }
 
         // Active Subject
-        let activeSub = subjects.find((s) => s.id === selectedSubjectId);
-        if (!activeSub) {
-          activeSub =
-            subjects.find(
-              (s) => s.code.toLowerCase() === 'eng' || s.name.toLowerCase().includes('tiếng anh')
-            ) || subjects[0];
-          setSelectedSubjectId(activeSub.id);
-        }
+        let activeSub = subjects.find((s) => s.id === selectedSubjectId) || subjects[0];
         if (!isMounted) return;
         setCurrentSubject(activeSub);
 
         // Active Topic
         const topics = await repo.getTopics(activeSub.id);
-        let activeTop = topics.find((t) => t.id === selectedTopicId);
-        if (!activeTop && topics.length > 0) {
-          activeTop =
-            topics.find((t) => t.name.toLowerCase().includes('câu điều kiện')) || topics[0];
-          setSelectedTopicId(activeTop.id);
+        const topicIds = topics.map((t) => t.id);
+
+        let activeTop: Topic | null = topics.find((t) => t.id === selectedTopicId) || null;
+        if (!activeTop) {
+          selectSubject(activeSub.id, topicIds);
+          const restoredId = useCurriculumStore.getState().selectedTopicId;
+          activeTop = topics.find((t) => t.id === restoredId) || (topics.length > 0 ? topics[0] : null);
+        } else if (selectedSubjectId !== activeSub.id) {
+          selectSubject(activeSub.id, topicIds);
         }
         if (!isMounted) return;
         setCurrentTopic(activeTop || null);
@@ -195,7 +198,7 @@ export const RoadmapPage: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [selectedSubjectId, selectedTopicId, setSelectedSubjectId, setSelectedTopicId]);
+  }, [selectedSubjectId, selectedTopicId, selectSubject]);
 
   // Topic chest eligibility
   const setsWithStars: SetWithStars[] = useMemo(() => {
@@ -291,15 +294,17 @@ export const RoadmapPage: React.FC = () => {
     return path;
   }, [totalCurveNodes, nodeSpacingY]);
 
-  const subjectTitle = currentSubject?.name || 'TIẾNG ANH';
-  const topicTitle = currentTopic?.name || 'CHUYÊN ĐỀ 15 / Câu điều kiện';
+  const subjectTitle = currentSubject?.name || 'Môn học';
+  const topicTitle = currentTopic?.name || (currentSubject ? `Môn ${currentSubject.name}` : 'Chưa có chuyên đề');
+  const topicDescription = currentTopic?.description || (setsWithDetails.length === 0 ? 'Chưa có bài nào cho môn này' : '');
+  const isEmptySubject = !currentTopic || setsWithDetails.length === 0;
 
   return (
-    <div className="flex flex-col items-center max-w-2xl mx-auto w-full pb-16">
+    <div className="w-full flex flex-col items-center pb-16">
       {/* =========================================================================
-          TOP BANNER: "TIẾNG ANH · CHUYÊN ĐỀ 15 / Câu điều kiện" + "Bảng công thức"
+          TOP BANNER: Tên chuyên đề/môn + Bảng công thức + Điều hướng
           ========================================================================= */}
-      <div className="w-full rounded-3xl bg-brand-navy p-6 sm:p-8 text-white shadow-pop relative overflow-hidden mb-10 border border-brand-navy-dark">
+      <div className="w-full rounded-3xl bg-brand-navy p-6 sm:p-8 lg:p-10 text-white shadow-pop relative overflow-hidden mb-10 border border-brand-navy-dark">
         {/* Glow effects */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-brand-blue/30 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-brand-yellow/20 rounded-full blur-2xl pointer-events-none" />
@@ -315,16 +320,21 @@ export const RoadmapPage: React.FC = () => {
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white mt-1">
             {topicTitle}
           </h2>
-          <p className="text-xs sm:text-sm font-semibold text-blue-100 mt-2 max-w-xl leading-relaxed">
-            Nắm vững cấu trúc câu điều kiện, mệnh đề If loại 1, 2, 3, đảo ngữ và dạng hỗn hợp bám sát cấu trúc đề ĐGNL ĐHQG TP.HCM.
-          </p>
+          {topicDescription ? (
+            <p className="text-xs sm:text-sm font-semibold text-blue-100 mt-2 max-w-xl leading-relaxed">
+              {topicDescription}
+            </p>
+          ) : null}
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <Button
               variant="yellow"
               size="md"
+              disabled={isEmptySubject}
+              title={isEmptySubject ? 'Chưa có bài nào cho môn này. Vui lòng import tài liệu để bắt đầu học!' : 'Tiếp tục học ngay'}
               leftIcon={<Play className="w-4 h-4 fill-current" />}
               onClick={() => {
+                if (isEmptySubject) return;
                 const firstIncomplete = setsWithDetails.find((s) => !s.isCompleted);
                 if (firstIncomplete) {
                   navigate(`/practice?setId=${firstIncomplete.set.id}`);
@@ -334,17 +344,35 @@ export const RoadmapPage: React.FC = () => {
                   navigate('/practice');
                 }
               }}
-              className="font-black shadow-pop"
+              className="font-black shadow-pop disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Tiếp tục học ngay
             </Button>
 
-            {/* Button "Bảng công thức" (link to /formula) */}
+            {isEmptySubject && (
+              <Button
+                variant="primary"
+                size="md"
+                leftIcon={<Upload className="w-4 h-4" />}
+                onClick={() =>
+                  navigate(
+                    `/import?subjectId=${currentSubject?.id || ''}&subjectName=${encodeURIComponent(
+                      currentSubject?.name || ''
+                    )}`
+                  )
+                }
+                className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold"
+              >
+                Import tài liệu
+              </Button>
+            )}
+
+            {/* Button "Bảng công thức" (mở FormulaModal của chuyên đề đang học) */}
             <Button
               variant="ghost"
               size="md"
               leftIcon={<BookOpen className="w-4 h-4 text-blue-200" />}
-              onClick={() => navigate('/formula')}
+              onClick={() => setIsFormulaModalOpen(true)}
               className="text-white hover:bg-white/10 border border-white/20"
             >
               Bảng công thức
@@ -353,10 +381,54 @@ export const RoadmapPage: React.FC = () => {
         </div>
       </div>
 
-      {/* =========================================================================
-          SINUSOIDAL CANDY-CRUSH STYLE ROADMAP PATH
-          ========================================================================= */}
-      <div className="relative w-full flex flex-col items-center py-2">
+      {/* Formula Modal */}
+      <FormulaModal
+        isOpen={isFormulaModalOpen}
+        onClose={() => setIsFormulaModalOpen(false)}
+        topicId={currentTopic?.id}
+        subjectId={currentSubject?.id}
+        title={currentTopic ? `Bảng công thức: ${currentTopic.name}` : undefined}
+      />
+
+      {/* Empty State when subject has no sets/topics */}
+      {isEmptySubject ? (
+        <Card
+          variant="default"
+          padding="lg"
+          className="w-full max-w-md mx-auto my-12 text-center flex flex-col items-center gap-4 bg-brand-card border border-brand-border"
+        >
+          <div className="w-16 h-16 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center">
+            <BookOpen className="w-8 h-8" />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-surface-primary">
+              Chưa có bài nào cho môn {currentSubject?.name || ''}
+            </h3>
+            <p className="text-xs sm:text-sm font-semibold text-surface-secondary mt-1">
+              Môn học này hiện chưa có chuyên đề hoặc bài luyện thi nào. Bạn có thể tự import tài liệu đề thi và câu hỏi để bắt đầu.
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            size="md"
+            leftIcon={<Upload className="w-4 h-4" />}
+            onClick={() =>
+              navigate(
+                `/import?subjectId=${currentSubject?.id || ''}&subjectName=${encodeURIComponent(
+                  currentSubject?.name || ''
+                )}`
+              )
+            }
+            className="font-bold shadow-sm"
+          >
+            Import tài liệu ngay
+          </Button>
+        </Card>
+      ) : (
+        /* =========================================================================
+            SINUSOIDAL CANDY-CRUSH STYLE ROADMAP PATH (Centered)
+            ========================================================================= */
+        <div className="relative w-full max-w-xl mx-auto flex flex-col items-center py-2">
         {/* SVG Sinusoidal Line Running Behind Nodes */}
         <div className="absolute inset-0 pointer-events-none flex justify-center">
           <svg
@@ -578,6 +650,7 @@ export const RoadmapPage: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
-  );
+    )}
+  </div>
+);
 };

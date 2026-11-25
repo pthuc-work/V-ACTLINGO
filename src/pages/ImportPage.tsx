@@ -25,12 +25,14 @@ import {
   ArrowDown,
   Save,
   BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  ListFilter,
 } from 'lucide-react';
 import {
   Button,
   Card,
   Chip,
-  Tabs,
   Modal,
   RichText,
   useToast,
@@ -64,7 +66,39 @@ import {
 } from '../features/import/quickAnswerInput';
 import { FigureCropperModal } from '../features/import/FigureCropperModal';
 
-type TabType = 'prompt' | 'input' | 'preview';
+export type TabType = 'prompt' | 'input' | 'preview';
+
+interface StepItem {
+  id: TabType;
+  title: string;
+  shortTitle: string;
+  subtitle: string;
+  icon: React.ReactNode;
+}
+
+const STEPS: StepItem[] = [
+  {
+    id: 'prompt',
+    title: '1. Tạo Prompt',
+    shortTitle: 'Tạo Prompt',
+    subtitle: 'Cấu hình & tạo prompt',
+    icon: <FileText className="w-4 h-4" />,
+  },
+  {
+    id: 'input',
+    title: '2. Nhập JSON',
+    shortTitle: 'Nhập JSON',
+    subtitle: 'Dán & phân tích dữ liệu',
+    icon: <UploadCloud className="w-4 h-4" />,
+  },
+  {
+    id: 'preview',
+    title: '3. Xem trước & Sửa',
+    shortTitle: 'Xem & Sửa',
+    subtitle: 'Kiểm tra & lưu bài học',
+    icon: <Edit3 className="w-4 h-4" />,
+  },
+];
 
 export const ImportPage: React.FC = () => {
   const navigate = useNavigate();
@@ -144,6 +178,7 @@ export const ImportPage: React.FC = () => {
   const [selectedQuestionIdx, setSelectedQuestionIdx] = useState<number>(0);
   const [filterMode, setFilterMode] = useState<'all' | 'unanswered' | 'ai' | 'verified'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isQuestionDrawerOpen, setIsQuestionDrawerOpen] = useState<boolean>(false);
 
   // Destination / Save State
   const [destSubjectMode, setDestSubjectMode] = useState<'existing' | 'new'>('existing');
@@ -166,34 +201,72 @@ export const ImportPage: React.FC = () => {
   const [isFigureModalOpen, setIsFigureModalOpen] = useState<boolean>(false);
   const [figureTargetQIdx, setFigureTargetQIdx] = useState<number | null>(null);
 
-  // Load existing subjects and topics
+  // Load existing subjects and topics with full query param matching
   useEffect(() => {
+    let isMounted = true;
     const loadCurriculum = async () => {
       try {
         const repo = getRepository();
         const subs = await repo.getSubjects();
+        if (!isMounted) return;
         setSubjects(subs);
 
-        let initialSubId = querySubjectId;
-        if (!initialSubId && subs.length > 0) {
-          const matchSub = subs.find(
-            (s) => s.name.toLowerCase() === (querySubjectName || 'tiếng anh').toLowerCase()
+        // Resolve subject: by querySubjectId, or by querySubjectName, or first
+        let matchedSub = subs.find((s) => s.id === querySubjectId);
+        if (!matchedSub && querySubjectName) {
+          matchedSub = subs.find(
+            (s) => s.name.toLowerCase() === querySubjectName.toLowerCase()
           );
-          initialSubId = matchSub ? matchSub.id : subs[0].id;
         }
+
+        let initialSubId = matchedSub ? matchedSub.id : querySubjectId;
+        if (!initialSubId && subs.length > 0) {
+          initialSubId = subs[0].id;
+          matchedSub = subs[0];
+        }
+
+        if (matchedSub) {
+          setSelectedSubjectName(matchedSub.name as SupportedSubject);
+          setPackageData((prev) => ({ ...prev, subject: matchedSub!.name }));
+          setDestNewSubjectName(matchedSub.name);
+          setDestSubjectMode('existing');
+        } else if (querySubjectName) {
+          setSelectedSubjectName(querySubjectName as SupportedSubject);
+          setPackageData((prev) => ({ ...prev, subject: querySubjectName }));
+          setDestNewSubjectName(querySubjectName);
+        }
+
         setDestSelectedSubjectId(initialSubId);
 
         if (initialSubId) {
           const tops = await repo.getTopics(initialSubId);
+          if (!isMounted) return;
           setTopics(tops);
 
-          let initialTopId = queryTopicId;
-          if (!initialTopId && tops.length > 0) {
-            const matchTop = tops.find(
-              (t) => t.name.toLowerCase() === (queryTopicName || '').toLowerCase()
+          let matchedTopic = tops.find((t) => t.id === queryTopicId);
+          if (!matchedTopic && queryTopicName) {
+            matchedTopic = tops.find(
+              (t) => t.name.toLowerCase() === queryTopicName.toLowerCase()
             );
-            initialTopId = matchTop ? matchTop.id : tops[0].id;
           }
+
+          let initialTopId = matchedTopic ? matchedTopic.id : queryTopicId;
+          if (!initialTopId && tops.length > 0) {
+            initialTopId = tops[0].id;
+            matchedTopic = tops[0];
+          }
+
+          if (matchedTopic) {
+            setTopicName(matchedTopic.name);
+            setPackageData((prev) => ({ ...prev, topic: matchedTopic!.name }));
+            setDestNewTopicName(matchedTopic.name);
+            setDestTopicMode('existing');
+          } else if (queryTopicName) {
+            setTopicName(queryTopicName);
+            setPackageData((prev) => ({ ...prev, topic: queryTopicName }));
+            setDestNewTopicName(queryTopicName);
+          }
+
           setDestSelectedTopicId(initialTopId);
         }
       } catch (err) {
@@ -201,6 +274,9 @@ export const ImportPage: React.FC = () => {
       }
     };
     loadCurriculum();
+    return () => {
+      isMounted = false;
+    };
   }, [querySubjectId, queryTopicId, querySubjectName, queryTopicName]);
 
   // When selected destination subject changes, update topics
@@ -274,12 +350,10 @@ export const ImportPage: React.FC = () => {
       setLastParseResult(result);
 
       if (result.data) {
-        // If data is single part or multipart
         const newPart = result.data;
         const updatedParts = [...receivedParts, newPart];
         setReceivedParts(updatedParts);
 
-        // Check if multiple parts or single
         if (updatedParts.length > 1 || newPart.part) {
           const mergeResult = mergeMultipartParts(updatedParts);
           setMultipartSummary(mergeResult);
@@ -439,7 +513,6 @@ export const ImportPage: React.FC = () => {
       return;
     }
     const updated = questions.filter((_, i) => i !== idx);
-    // Renumber
     const renumbered = updated.map((q, i) => ({ ...q, no: i + 1 }));
     setPackageData((prev) => ({ ...prev, questions: renumbered }));
     if (selectedQuestionIdx >= renumbered.length) {
@@ -457,7 +530,6 @@ export const ImportPage: React.FC = () => {
     list[idx] = list[targetIdx];
     list[targetIdx] = temp;
 
-    // Renumber
     const renumbered = list.map((q, i) => ({ ...q, no: i + 1 }));
     setPackageData((prev) => ({ ...prev, questions: renumbered }));
     setSelectedQuestionIdx(targetIdx);
@@ -512,7 +584,6 @@ export const ImportPage: React.FC = () => {
       return;
     }
 
-    // Determine target Subject Name
     let finalSubjectName = '';
     if (destSubjectMode === 'existing') {
       const match = subjects.find((s) => s.id === destSelectedSubjectId);
@@ -521,7 +592,6 @@ export const ImportPage: React.FC = () => {
       finalSubjectName = destNewSubjectName.trim() || packageData.subject || 'Tiếng Anh';
     }
 
-    // Determine target Topic Name
     let finalTopicName = '';
     if (destTopicMode === 'existing') {
       const match = topics.find((t) => t.id === destSelectedTopicId);
@@ -536,7 +606,6 @@ export const ImportPage: React.FC = () => {
     try {
       const repo = getRepository();
 
-      // Construct atomic V1ImportPackage
       const importPkg: V1ImportPackage = {
         schemaVersion: 1,
         subject: finalSubjectName,
@@ -575,7 +644,6 @@ export const ImportPage: React.FC = () => {
         `Lưu bài học thành công! Đã nạp ${result.questionCount} câu vào [${finalSubjectName} / ${finalTopicName} / ${finalSetName}].`
       );
 
-      // Navigate to Roadmap with query parameters
       setTimeout(() => {
         const queryParams = new URLSearchParams({
           subjectId: result.subjectId,
@@ -593,60 +661,295 @@ export const ImportPage: React.FC = () => {
     }
   };
 
-  return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto w-full pb-16">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Chip variant="ai" size="sm" icon={<Sparkles className="w-3.5 h-3.5" />}>
-              AI TRỢ LÝ SỐ HÓA
-            </Chip>
-            <span className="text-xs font-bold text-surface-secondary">
-              Định dạng chuẩn Schema v1
-            </span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-brand-navy dark:text-brand-blue tracking-tight">
-            Số hóa đề thi bằng AI
-          </h1>
-          <p className="text-xs sm:text-sm font-semibold text-surface-secondary mt-0.5">
-            Tạo prompt chuẩn, tự động sửa lỗi JSON, cắt hình minh họa, kiểm tra đáp án và lưu thẳng vào Lộ trình.
-          </p>
+  // Helper for Stepper status calculation
+  const getStepStatus = (stepId: TabType): 'active' | 'completed' | 'pending' => {
+    if (activeTab === stepId) return 'active';
+    const order: Record<TabType, number> = { prompt: 0, input: 1, preview: 2 };
+    const currentIdx = order[activeTab];
+    const stepIdx = order[stepId];
+    if (currentIdx > stepIdx) return 'completed';
+    if (stepId === 'input' && receivedParts.length > 0) return 'completed';
+    if (stepId === 'preview' && questions.length > 0) return 'completed';
+    return 'pending';
+  };
+
+  // Render question list contents (shared between desktop left column and mobile drawer)
+  const renderQuestionList = () => (
+    <div className="flex flex-col h-full">
+      {/* Search & Filter Header */}
+      <div className="p-2.5 border-b border-brand-border space-y-2 shrink-0">
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3 top-2.5 text-surface-secondary" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm theo nội dung, câu số..."
+            className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-brand-bg text-surface-primary text-xs font-medium border border-brand-border outline-none focus:border-brand-blue"
+          />
         </div>
 
-        {/* Global Tab Switcher */}
-        <div className="shrink-0">
-          <Tabs
-            size="md"
-            tabs={[
-              { id: 'prompt', label: '1. Tạo Prompt', icon: <FileText className="w-4 h-4" /> },
-              {
-                id: 'input',
-                label: '2. Nhập JSON',
-                icon: <UploadCloud className="w-4 h-4" />,
-                badge: receivedParts.length > 0 ? `${receivedParts.length} phần` : undefined,
-              },
-              {
-                id: 'preview',
-                label: '3. Xem trước & Sửa',
-                icon: <Edit3 className="w-4 h-4" />,
-                badge: questions.length > 0 ? `${questions.length} câu` : undefined,
-              },
-            ]}
-            activeTab={activeTab}
-            onChange={(id) => setActiveTab(id as TabType)}
-          />
+        <div className="flex flex-wrap gap-1">
+          <button
+            type="button"
+            onClick={() => setFilterMode('all')}
+            className={`px-2 py-1 rounded-lg text-[11px] font-extrabold transition-all ${
+              filterMode === 'all'
+                ? 'bg-brand-blue text-white shadow-sm'
+                : 'bg-brand-bg text-surface-secondary hover:text-surface-primary'
+            }`}
+          >
+            Tất cả ({questions.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterMode('unanswered')}
+            className={`px-2 py-1 rounded-lg text-[11px] font-extrabold transition-all ${
+              filterMode === 'unanswered'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'bg-brand-bg text-amber-600 dark:text-amber-400'
+            }`}
+          >
+            Thiếu đáp án ({stats.missing})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterMode('ai')}
+            className={`px-2 py-1 rounded-lg text-[11px] font-extrabold transition-all ${
+              filterMode === 'ai'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'bg-brand-bg text-purple-600'
+            }`}
+          >
+            AI ({stats.ai})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterMode('verified')}
+            className={`px-2 py-1 rounded-lg text-[11px] font-extrabold transition-all ${
+              filterMode === 'verified'
+                ? 'bg-green-600 text-white shadow-sm'
+                : 'bg-brand-bg text-green-600'
+            }`}
+          >
+            Xác minh ({stats.verified})
+          </button>
         </div>
       </div>
 
+      {/* List Items */}
+      <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar min-h-[200px] max-h-[580px]">
+        {filteredIndices.length === 0 ? (
+          <div className="text-center py-8 text-surface-secondary text-xs font-bold">
+            Không có câu hỏi nào khớp bộ lọc.
+          </div>
+        ) : (
+          filteredIndices.map((idx) => {
+            const q = questions[idx];
+            const isSelected = idx === selectedQuestionIdx;
+            const status = getQuestionStatus(q);
+
+            return (
+              <div
+                key={idx}
+                onClick={() => {
+                  setSelectedQuestionIdx(idx);
+                  setIsQuestionDrawerOpen(false);
+                }}
+                className={`p-3 rounded-xl border-2 transition-all cursor-pointer flex flex-col gap-1.5 ${
+                  isSelected
+                    ? 'bg-brand-blue/10 border-brand-blue shadow-sm'
+                    : 'bg-brand-bg/60 border-brand-border hover:border-brand-border/80'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-6 h-6 rounded-lg bg-brand-surface border border-brand-border flex items-center justify-center font-black text-xs text-brand-navy dark:text-brand-blue">
+                      {q.no ?? idx + 1}
+                    </span>
+                    {q.category && (
+                      <span
+                        title={q.category}
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand-border/60 text-surface-secondary truncate max-w-[120px]"
+                      >
+                        {q.category}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <Chip variant={status.variant} size="sm">
+                      {status.label}
+                    </Chip>
+
+                    <button
+                      type="button"
+                      title="Xóa câu này"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteQuestion(idx);
+                      }}
+                      className="p-1 rounded-lg text-surface-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-xs font-medium text-surface-primary line-clamp-2">
+                  {q.prompt || 'Chưa có nội dung đề bài...'}
+                </p>
+
+                <div className="flex items-center justify-between text-[11px] text-surface-secondary pt-1 border-t border-brand-border/40">
+                  <span>
+                    Đáp án:{' '}
+                    <strong>
+                      {q.correctIndex !== null && q.correctIndex !== undefined
+                        ? indexToLetter(q.correctIndex)
+                        : 'Chưa có'}
+                    </strong>
+                  </span>
+                  {q.figure && <span className="text-brand-blue font-bold">Có hình minh họa</span>}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-5 w-full pb-16">
       {/* =========================================================================
-          TAB 1: TẠO PROMPT
+          TOP HEADER: 1 HÀNG TRÊN DESKTOP (ICON, TIÊU ĐỀ, MÔ TẢ, BADGE SCHEMA).
+          XẾP DỌC KHI DƯỚI 768px (<md)
+          ========================================================================= */}
+      <header
+        data-testid="import-header"
+        className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-brand-card/70 border border-brand-border shadow-sm"
+      >
+        <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-brand-blue/10 border border-brand-blue/20 text-brand-blue flex items-center justify-center shrink-0 shadow-sm">
+            <Sparkles className="w-6 h-6 stroke-[2.2]" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-black text-brand-navy dark:text-brand-blue tracking-tight truncate">
+              Số hóa đề thi bằng AI
+            </h1>
+            <p className="text-xs sm:text-sm font-medium text-surface-secondary mt-0.5 line-clamp-2">
+              Tạo prompt chuẩn, tự động sửa lỗi JSON, cắt hình minh họa, kiểm tra đáp án và lưu thẳng vào Lộ trình.
+            </p>
+          </div>
+        </div>
+
+        <div className="shrink-0 flex items-center gap-2 self-start md:self-center">
+          <div
+            data-testid="import-schema-badge"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/25 text-purple-600 dark:text-purple-400 font-extrabold text-xs shadow-sm"
+          >
+            <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+            <span>Định dạng chuẩn Schema v1</span>
+          </div>
+        </div>
+      </header>
+
+      {/* =========================================================================
+          STEPPER NGANG FULL-WIDTH (THAY THẾ TAB CŨ)
+          Trạng thái: active / completed / pending
+          Tự rút gọn nhãn trên màn hình hẹp, không bao giờ tràn khung
+          ========================================================================= */}
+      <nav aria-label="Tiến trình số hóa" data-testid="import-stepper" className="w-full">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full">
+          {STEPS.map((step, idx) => {
+            const status = getStepStatus(step.id);
+            const badgeText =
+              step.id === 'input' && receivedParts.length > 0
+                ? `${receivedParts.length} phần`
+                : step.id === 'preview' && questions.length > 0
+                ? `${questions.length} câu`
+                : null;
+
+            return (
+              <button
+                key={step.id}
+                type="button"
+                onClick={() => setActiveTab(step.id)}
+                data-step-id={step.id}
+                data-status={status}
+                aria-current={status === 'active' ? 'step' : undefined}
+                className={`relative flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-2xl border-2 transition-all text-left min-w-0 w-full overflow-hidden ${
+                  status === 'active'
+                    ? 'bg-brand-blue/10 border-brand-blue shadow-sm'
+                    : status === 'completed'
+                    ? 'bg-green-500/5 border-green-500/40 hover:bg-green-500/10'
+                    : 'bg-brand-card/40 border-brand-border/60 hover:border-brand-border opacity-70 hover:opacity-100'
+                }`}
+              >
+                {/* Status Indicator Icon / Step Number */}
+                <div
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center shrink-0 font-black text-xs transition-colors ${
+                    status === 'active'
+                      ? 'bg-brand-blue text-white shadow-sm'
+                      : status === 'completed'
+                      ? 'bg-green-500 text-white shadow-sm'
+                      : 'bg-brand-border text-surface-secondary'
+                  }`}
+                >
+                  {status === 'completed' ? (
+                    <Check className="w-4 h-4 stroke-[3]" />
+                  ) : (
+                    <span>{idx + 1}</span>
+                  )}
+                </div>
+
+                {/* Step Titles & Subtitle */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span
+                      className={`font-black text-xs sm:text-sm truncate ${
+                        status === 'active'
+                          ? 'text-brand-blue'
+                          : status === 'completed'
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-surface-secondary'
+                      }`}
+                    >
+                      <span className="hidden sm:inline">{step.title}</span>
+                      <span className="sm:hidden">{step.shortTitle}</span>
+                    </span>
+
+                    {badgeText && (
+                      <span className="hidden md:inline-block px-1.5 py-0.5 rounded-md text-[10px] font-black bg-brand-blue/15 text-brand-blue shrink-0">
+                        {badgeText}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] font-medium text-surface-muted truncate hidden lg:block mt-0.5">
+                    {step.subtitle}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* =========================================================================
+          BƯỚC 1: TẠO PROMPT
+          ≥1100px: 2 cột - Trái: form cấu hình (380px, cuộn riêng), Phải: khung prompt calc(100dvh-...)
+          <1100px: Xếp dọc, form trước, prompt sau.
+          Nút "Sao chép Prompt" và "Sang tab Nhập JSON" cố định ở thanh trên khung prompt.
           ========================================================================= */}
       {activeTab === 'prompt' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Controls Column */}
-          <div className="lg:col-span-5 flex flex-col gap-5">
-            <Card variant="default" padding="lg">
+        <div
+          data-testid="import-step-1"
+          className="w-full flex flex-col min-[1100px]:flex-row gap-5 items-stretch min-[1100px]:h-[calc(100dvh-220px)] min-[1100px]:min-h-[560px]"
+        >
+          {/* CỘT TRÁI: FORM CẤU HÌNH (~380px) */}
+          <div className="w-full min-[1100px]:w-[380px] shrink-0 flex flex-col gap-4 min-[1100px]:overflow-y-auto custom-scrollbar pr-0 min-[1100px]:pr-1">
+            <Card variant="default" padding="lg" className="border-brand-border/80 shadow-sm">
               <h3 className="text-base font-black text-surface-primary mb-4 flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-brand-blue" />
                 Cấu hình thông tin đề thi
@@ -655,12 +958,14 @@ export const ImportPage: React.FC = () => {
               <div className="space-y-4">
                 {/* Subject Selector */}
                 <div>
-                  <label className="block text-xs font-black text-surface-primary mb-1">
+                  <label htmlFor="prompt-subject-select" className="block text-xs font-black text-surface-primary mb-1">
                     Môn học
                   </label>
                   <select
+                    id="prompt-subject-select"
                     value={selectedSubjectName}
                     onChange={(e) => setSelectedSubjectName(e.target.value as SupportedSubject)}
+                    title={selectedSubjectName}
                     className="w-full px-3 py-2 rounded-xl bg-brand-bg text-surface-primary text-xs font-bold border-2 border-brand-border outline-none focus:border-brand-blue transition-colors"
                   >
                     {DEFAULT_SUBJECTS.map((sub) => (
@@ -673,13 +978,15 @@ export const ImportPage: React.FC = () => {
 
                 {/* Topic Name */}
                 <div>
-                  <label className="block text-xs font-black text-surface-primary mb-1">
+                  <label htmlFor="prompt-topic-input" className="block text-xs font-black text-surface-primary mb-1">
                     Tên Chuyên đề
                   </label>
                   <input
+                    id="prompt-topic-input"
                     type="text"
                     value={topicName}
                     onChange={(e) => setTopicName(e.target.value)}
+                    title={topicName}
                     placeholder="Ví dụ: Chuyên đề 15: Câu điều kiện"
                     className="w-full px-3 py-2 rounded-xl bg-brand-bg text-surface-primary text-xs font-medium border-2 border-brand-border outline-none focus:border-brand-blue transition-colors"
                   />
@@ -687,13 +994,15 @@ export const ImportPage: React.FC = () => {
 
                 {/* Set / Lesson Name */}
                 <div>
-                  <label className="block text-xs font-black text-surface-primary mb-1">
+                  <label htmlFor="prompt-set-input" className="block text-xs font-black text-surface-primary mb-1">
                     Tên Bài học / Bộ đề
                   </label>
                   <input
+                    id="prompt-set-input"
                     type="text"
                     value={setName}
                     onChange={(e) => setSetName(e.target.value)}
+                    title={setName}
                     placeholder="Ví dụ: Bài tập áp dụng"
                     className="w-full px-3 py-2 rounded-xl bg-brand-bg text-surface-primary text-xs font-medium border-2 border-brand-border outline-none focus:border-brand-blue transition-colors"
                   />
@@ -701,10 +1010,11 @@ export const ImportPage: React.FC = () => {
 
                 {/* Document Type */}
                 <div>
-                  <label className="block text-xs font-black text-surface-primary mb-1">
+                  <label htmlFor="prompt-doctype-select" className="block text-xs font-black text-surface-primary mb-1">
                     Đặc thù tài liệu
                   </label>
                   <select
+                    id="prompt-doctype-select"
                     value={docType}
                     onChange={(e) => setDocType(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-brand-bg text-surface-primary text-xs font-medium border-2 border-brand-border outline-none focus:border-brand-blue transition-colors"
@@ -718,10 +1028,11 @@ export const ImportPage: React.FC = () => {
                 {/* Chunk size & total parts hint */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-black text-surface-primary mb-1">
+                    <label htmlFor="prompt-chunk-size" className="block text-xs font-black text-surface-primary mb-1">
                       Số câu / lượt
                     </label>
                     <input
+                      id="prompt-chunk-size"
                       type="number"
                       min={10}
                       max={50}
@@ -731,10 +1042,11 @@ export const ImportPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-black text-surface-primary mb-1">
+                    <label htmlFor="prompt-expected-parts" className="block text-xs font-black text-surface-primary mb-1">
                       Gợi ý số phần
                     </label>
                     <input
+                      id="prompt-expected-parts"
                       type="number"
                       min={1}
                       max={10}
@@ -747,10 +1059,11 @@ export const ImportPage: React.FC = () => {
 
                 {/* Custom Note */}
                 <div>
-                  <label className="block text-xs font-black text-surface-primary mb-1">
+                  <label htmlFor="prompt-custom-note" className="block text-xs font-black text-surface-primary mb-1">
                     Ghi chú bổ sung cho chatbot (tùy chọn)
                   </label>
                   <textarea
+                    id="prompt-custom-note"
                     rows={2}
                     value={customPromptNote}
                     onChange={(e) => setCustomPromptNote(e.target.value)}
@@ -760,7 +1073,7 @@ export const ImportPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-5 pt-4 border-t border-brand-border flex items-center justify-between gap-3">
+              <div className="mt-5 pt-4 border-t border-brand-border">
                 <Button
                   variant="primary"
                   size="md"
@@ -786,38 +1099,50 @@ export const ImportPage: React.FC = () => {
             </Card>
           </div>
 
-          {/* Generated Prompt Preview Column */}
-          <div className="lg:col-span-7 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-surface-primary uppercase tracking-wider">
-                Nội dung Prompt Tiếng Việt chuẩn hóa:
-              </span>
+          {/* CỘT PHẢI: KHUNG PROMPT CHIẾM PHẦN CÒN LẠI */}
+          <div className="flex-1 min-w-0 flex flex-col rounded-2xl border-2 border-brand-border bg-brand-card overflow-hidden shadow-sm min-[1100px]:h-full">
+            {/* Thanh trên cố định của khung prompt */}
+            <div className="sticky top-0 z-10 px-4 py-3 bg-brand-surface/95 backdrop-blur-sm border-b border-brand-border flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2.5 h-2.5 rounded-full bg-brand-blue" />
+                <span className="text-xs sm:text-sm font-black text-surface-primary uppercase tracking-wider truncate">
+                  Prompt Tiếng Việt chuẩn hóa
+                </span>
+                <span className="text-[11px] font-bold text-surface-secondary hidden sm:inline">
+                  ({generatedPrompt.length} ký tự)
+                </span>
+              </div>
+
+              {/* Action Buttons cố định thanh trên */}
               <div className="flex items-center gap-2">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  leftIcon={<Copy className="w-3.5 h-3.5" />}
+                  leftIcon={<Copy className="w-4 h-4" />}
                   onClick={handleCopyPrompt}
+                  data-testid="copy-prompt-top-btn"
                 >
-                  Sao chép
+                  Sao chép Prompt
                 </Button>
                 <Button
                   variant="primary"
                   size="sm"
-                  rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
                   onClick={() => setActiveTab('input')}
+                  data-testid="goto-input-tab-btn"
                 >
-                  Sang Tab Nhập JSON
+                  Sang tab Nhập JSON
                 </Button>
               </div>
             </div>
 
-            <div className="relative">
+            {/* Nội dung prompt cuộn riêng */}
+            <div className="flex-1 min-h-[320px] min-[1100px]:min-h-0 relative bg-brand-bg/60 p-3 overflow-hidden">
               <textarea
                 readOnly
-                rows={22}
                 value={generatedPrompt}
-                className="w-full p-4 rounded-2xl bg-brand-bg font-mono text-xs border-2 border-brand-border text-surface-primary outline-none focus:border-brand-blue custom-scrollbar shadow-inner select-all"
+                aria-label="Nội dung prompt đã sinh"
+                className="w-full h-full min-h-[320px] p-4 rounded-xl bg-brand-bg font-mono text-xs border border-brand-border/60 text-surface-primary outline-none focus:border-brand-blue resize-none custom-scrollbar select-all"
               />
             </div>
           </div>
@@ -825,10 +1150,10 @@ export const ImportPage: React.FC = () => {
       )}
 
       {/* =========================================================================
-          TAB 2: NHẬP JSON & GHÉP MULTIPART
+          BƯỚC 2: NHẬP JSON & GHÉP MULTIPART (GIỮ NGUYÊN 100% TÍNH NĂNG)
           ========================================================================= */}
       {activeTab === 'input' && (
-        <div className="flex flex-col gap-6">
+        <div data-testid="import-step-2" className="flex flex-col gap-5 w-full">
           <Card variant="default" padding="lg">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
               <div>
@@ -1009,10 +1334,12 @@ export const ImportPage: React.FC = () => {
       )}
 
       {/* =========================================================================
-          TAB 3: XEM TRƯỚC & CHỈNH SỬA
+          BƯỚC 3: XEM TRƯỚC & SỬA
+          ≥1100px: Bố cục 2 cột (danh sách câu hỏi bên trái, form chỉnh sửa bên phải)
+          <1100px: Danh sách câu thu gọn thành dropdown/drawer chọn câu, form chiếm toàn bộ
           ========================================================================= */}
       {activeTab === 'preview' && (
-        <div className="flex flex-col gap-6">
+        <div data-testid="import-step-3" className="flex flex-col gap-5 w-full">
           {/* Top Status & Summary Bar */}
           <Card variant="default" padding="md" className="bg-brand-card">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1074,143 +1401,87 @@ export const ImportPage: React.FC = () => {
             </div>
           </Card>
 
-          {/* Main 2-Column Editing Area */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* -----------------------------------------------------------------
-                LEFT COLUMN: QUESTION LIST
-                ----------------------------------------------------------------- */}
-            <div className="lg:col-span-4 flex flex-col gap-3">
-              <Card variant="default" padding="sm" className="overflow-hidden">
-                {/* Search & Filter Header */}
-                <div className="p-2 border-b border-brand-border space-y-2">
-                  <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3 top-2.5 text-surface-secondary" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Tìm theo nội dung, câu số..."
-                      className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-brand-bg text-surface-primary text-xs font-medium border border-brand-border outline-none focus:border-brand-blue"
-                    />
-                  </div>
-
-                  <div className="flex flex-wrap gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setFilterMode('all')}
-                      className={`px-2 py-1 rounded-lg text-[11px] font-extrabold transition-all ${
-                        filterMode === 'all'
-                          ? 'bg-brand-blue text-white shadow-sm'
-                          : 'bg-brand-bg text-surface-secondary hover:text-surface-primary'
-                      }`}
-                    >
-                      Tất cả ({questions.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFilterMode('unanswered')}
-                      className={`px-2 py-1 rounded-lg text-[11px] font-extrabold transition-all ${
-                        filterMode === 'unanswered'
-                          ? 'bg-amber-500 text-white shadow-sm'
-                          : 'bg-brand-bg text-amber-600 dark:text-amber-400'
-                      }`}
-                    >
-                      Thiếu đáp án ({stats.missing})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFilterMode('ai')}
-                      className={`px-2 py-1 rounded-lg text-[11px] font-extrabold transition-all ${
-                        filterMode === 'ai'
-                          ? 'bg-purple-600 text-white shadow-sm'
-                          : 'bg-brand-bg text-purple-600'
-                      }`}
-                    >
-                      AI ({stats.ai})
-                    </button>
-                  </div>
-                </div>
-
-                {/* List Items */}
-                <div className="max-h-[560px] overflow-y-auto p-2 space-y-2 custom-scrollbar">
-                  {filteredIndices.length === 0 ? (
-                    <div className="text-center py-8 text-surface-secondary text-xs font-bold">
-                      Không có câu hỏi nào khớp bộ lọc.
-                    </div>
-                  ) : (
-                    filteredIndices.map((idx) => {
-                      const q = questions[idx];
-                      const isSelected = idx === selectedQuestionIdx;
-                      const status = getQuestionStatus(q);
-
-                      return (
-                        <div
-                          key={idx}
-                          onClick={() => setSelectedQuestionIdx(idx)}
-                          className={`p-3 rounded-xl border-2 transition-all cursor-pointer flex flex-col gap-1.5 ${
-                            isSelected
-                              ? 'bg-brand-blue/10 border-brand-blue shadow-sm'
-                              : 'bg-brand-bg/60 border-brand-border hover:border-brand-border/80'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-6 h-6 rounded-lg bg-brand-surface border border-brand-border flex items-center justify-center font-black text-xs text-brand-navy dark:text-brand-blue">
-                                {q.no ?? idx + 1}
-                              </span>
-                              {q.category && (
-                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand-border/60 text-surface-secondary truncate max-w-[120px]">
-                                  {q.category}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-1">
-                              <Chip variant={status.variant} size="sm">
-                                {status.label}
-                              </Chip>
-
-                              <button
-                                type="button"
-                                title="Xóa câu này"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteQuestion(idx);
-                                }}
-                                className="p-1 rounded-lg text-surface-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          <p className="text-xs font-medium text-surface-primary line-clamp-2">
-                            {q.prompt || 'Chưa có nội dung đề bài...'}
-                          </p>
-
-                          <div className="flex items-center justify-between text-[11px] text-surface-secondary pt-1 border-t border-brand-border/40">
-                            <span>
-                              Đáp án:{' '}
-                              <strong>
-                                {q.correctIndex !== null && q.correctIndex !== undefined
-                                  ? indexToLetter(q.correctIndex)
-                                  : 'Chưa có'}
-                              </strong>
-                            </span>
-                            {q.figure && <span className="text-brand-blue font-bold">Có hình minh họa</span>}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </Card>
+          {/* DƯỚI 1100px: DROPDOWN / NÚT CHỌN CÂU THU GỌN VÀ NÚT MỞ BỘ LỌC DRAWER */}
+          <div
+            data-testid="compact-question-nav"
+            className="flex min-[1100px]:hidden flex-wrap items-center justify-between gap-2.5 p-3 rounded-2xl bg-brand-card border border-brand-border shadow-sm"
+          >
+            <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+              <label htmlFor="mobile-question-select" className="text-xs font-black text-surface-primary whitespace-nowrap">
+                Chọn câu:
+              </label>
+              <select
+                id="mobile-question-select"
+                value={selectedQuestionIdx}
+                onChange={(e) => setSelectedQuestionIdx(Number(e.target.value))}
+                className="flex-1 px-3 py-1.5 rounded-xl bg-brand-bg text-surface-primary text-xs font-bold border border-brand-border outline-none focus:border-brand-blue truncate"
+              >
+                {questions.map((q, idx) => {
+                  const letter =
+                    q.correctIndex !== null && q.correctIndex !== undefined
+                      ? indexToLetter(q.correctIndex)
+                      : '?';
+                  return (
+                    <option key={idx} value={idx}>
+                      Câu {q.no ?? idx + 1} ({letter}) - {q.prompt ? q.prompt.slice(0, 36) + '...' : 'Chưa có nội dung'}
+                    </option>
+                  );
+                })}
+              </select>
             </div>
 
-            {/* -----------------------------------------------------------------
-                RIGHT COLUMN: DETAILED QUESTION FORM & LIVE RICHTEXT PREVIEW
-                ----------------------------------------------------------------- */}
-            <div className="lg:col-span-8 flex flex-col gap-4">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={selectedQuestionIdx <= 0}
+                onClick={() => setSelectedQuestionIdx((prev) => Math.max(0, prev - 1))}
+                title="Câu trước"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+
+              <span className="text-xs font-black text-brand-blue px-1 whitespace-nowrap">
+                {questions.length > 0 ? selectedQuestionIdx + 1 : 0} / {questions.length}
+              </span>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={selectedQuestionIdx >= questions.length - 1}
+                onClick={() => setSelectedQuestionIdx((prev) => Math.min(questions.length - 1, prev + 1))}
+                title="Câu sau"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<ListFilter className="w-4 h-4 text-brand-blue" />}
+                onClick={() => setIsQuestionDrawerOpen(true)}
+              >
+                Danh sách
+              </Button>
+            </div>
+          </div>
+
+          {/* MAIN BƯỚC 3 LAYOUT:
+              ≥1100px: 2 CỘT (DANH SÁCH BÊN TRÁI 340px, FORM BÊN PHẢI)
+              <1100px: FORM CHIẾM TOÀN BỘ CHIỀU NGANG */}
+          <div className="flex flex-col min-[1100px]:flex-row gap-5 items-start w-full">
+            {/* CỘT TRÁI (≥1100px): DANH SÁCH CÂU HỎI */}
+            <aside
+              data-testid="desktop-question-list"
+              className="hidden min-[1100px]:flex min-[1100px]:w-[340px] shrink-0 flex-col gap-3"
+            >
+              <Card variant="default" padding="sm" className="w-full overflow-hidden">
+                {renderQuestionList()}
+              </Card>
+            </aside>
+
+            {/* CỘT PHẢI (HOẶC TOÀN BỘ KHI <1100px): FORM CHỈNH SỬA CHI TIẾT */}
+            <main data-testid="question-editor-main" className="flex-1 min-w-0 w-full flex flex-col gap-4">
               {currentQuestion ? (
                 <Card variant="default" padding="lg">
                   {/* Item Header */}
@@ -1259,26 +1530,30 @@ export const ImportPage: React.FC = () => {
                     {/* Category & Formula Bar */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-black text-surface-primary mb-1">
+                        <label htmlFor="q-category-input" className="block text-xs font-black text-surface-primary mb-1">
                           Chuyên đề nhỏ / Phân loại (Category)
                         </label>
                         <input
+                          id="q-category-input"
                           type="text"
                           value={currentQuestion.category || ''}
                           onChange={(e) => handleUpdateCurrentQuestion({ category: e.target.value })}
+                          title={currentQuestion.category || ''}
                           placeholder="Ví dụ: Câu điều kiện loại 3, Từ vựng..."
                           className="w-full px-3 py-2 rounded-xl bg-brand-bg text-surface-primary text-xs font-medium border-2 border-brand-border outline-none focus:border-brand-blue"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-black text-surface-primary mb-1">
+                        <label htmlFor="q-formula-input" className="block text-xs font-black text-surface-primary mb-1">
                           Công thức / Điểm ngữ pháp (Formula)
                         </label>
                         <input
+                          id="q-formula-input"
                           type="text"
                           value={currentQuestion.formula || ''}
                           onChange={(e) => handleUpdateCurrentQuestion({ formula: e.target.value })}
+                          title={currentQuestion.formula || ''}
                           placeholder="Ví dụ: If + had + V3, would have + V3"
                           className="w-full px-3 py-2 rounded-xl bg-brand-bg text-surface-primary text-xs font-medium border-2 border-brand-border outline-none focus:border-brand-blue"
                         />
@@ -1288,10 +1563,11 @@ export const ImportPage: React.FC = () => {
                     {/* Passage selection (if passages exist) */}
                     {packageData.passages && packageData.passages.length > 0 && (
                       <div>
-                        <label className="block text-xs font-black text-surface-primary mb-1">
+                        <label htmlFor="q-passage-select" className="block text-xs font-black text-surface-primary mb-1">
                           Đoạn văn đọc hiểu liên kết (Passage)
                         </label>
                         <select
+                          id="q-passage-select"
                           value={currentQuestion.passageId || ''}
                           onChange={(e) =>
                             handleUpdateCurrentQuestion({ passageId: e.target.value || null })
@@ -1300,7 +1576,7 @@ export const ImportPage: React.FC = () => {
                         >
                           <option value="">-- Không liên kết đoạn văn --</option>
                           {packageData.passages.map((p, pIdx) => (
-                            <option key={p.id || pIdx} value={p.id}>
+                            <option key={p.id || pIdx} value={p.id} title={p.title || `Đoạn văn #${pIdx + 1}`}>
                               {p.title || `Đoạn văn #${pIdx + 1} (${p.id})`}
                             </option>
                           ))}
@@ -1311,7 +1587,7 @@ export const ImportPage: React.FC = () => {
                     {/* Question Prompt Editor */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-black text-surface-primary">
+                        <label htmlFor="q-prompt-editor" className="text-xs font-black text-surface-primary">
                           Nội dung Đề bài (hỗ trợ KaTeX, LaTeX):
                         </label>
                         <span className="text-[11px] text-surface-secondary">
@@ -1319,6 +1595,7 @@ export const ImportPage: React.FC = () => {
                         </span>
                       </div>
                       <textarea
+                        id="q-prompt-editor"
                         rows={4}
                         value={currentQuestion.prompt}
                         onChange={(e) => handleUpdateCurrentQuestion({ prompt: e.target.value })}
@@ -1412,7 +1689,7 @@ export const ImportPage: React.FC = () => {
                               {letter}
                             </button>
 
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                               <input
                                 type="text"
                                 value={optionText}
@@ -1421,6 +1698,8 @@ export const ImportPage: React.FC = () => {
                                   newOpts[optIdx] = e.target.value;
                                   handleUpdateCurrentQuestion({ options: newOpts });
                                 }}
+                                title={optionText}
+                                aria-label={`Phương án ${letter}`}
                                 className="w-full px-2.5 py-1.5 rounded-lg bg-brand-surface text-surface-primary text-xs font-medium border border-brand-border outline-none focus:border-brand-blue"
                               />
                             </div>
@@ -1453,10 +1732,11 @@ export const ImportPage: React.FC = () => {
 
                     {/* Explanation */}
                     <div>
-                      <label className="block text-xs font-black text-surface-primary mb-1">
+                      <label htmlFor="q-explanation-editor" className="block text-xs font-black text-surface-primary mb-1">
                         Lời giải chi tiết (Explanation)
                       </label>
                       <textarea
+                        id="q-explanation-editor"
                         rows={3}
                         value={currentQuestion.explanation || ''}
                         onChange={(e) => handleUpdateCurrentQuestion({ explanation: e.target.value })}
@@ -1473,7 +1753,7 @@ export const ImportPage: React.FC = () => {
                   Chọn câu hỏi bên trái để bắt đầu chỉnh sửa.
                 </div>
               )}
-            </div>
+            </main>
           </div>
 
           {/* ===================================================================
@@ -1488,11 +1768,12 @@ export const ImportPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Subject Destination */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-black text-surface-primary">
+                <label htmlFor="dest-subject-select" className="block text-xs font-black text-surface-primary">
                   1. Môn học
                 </label>
                 <div className="flex gap-2">
                   <select
+                    id="dest-subject-select"
                     value={destSubjectMode === 'existing' ? destSelectedSubjectId : 'NEW'}
                     onChange={(e) => {
                       if (e.target.value === 'NEW') {
@@ -1502,10 +1783,13 @@ export const ImportPage: React.FC = () => {
                         handleSubjectChange(e.target.value);
                       }
                     }}
+                    title={
+                      subjects.find((s) => s.id === destSelectedSubjectId)?.name || 'Chọn môn học'
+                    }
                     className="w-full px-3 py-2 rounded-xl bg-brand-bg text-surface-primary text-xs font-bold border-2 border-brand-border outline-none focus:border-brand-blue"
                   >
                     {subjects.map((s) => (
-                      <option key={s.id} value={s.id}>
+                      <option key={s.id} value={s.id} title={s.name}>
                         {s.name} ({s.code})
                       </option>
                     ))}
@@ -1518,6 +1802,7 @@ export const ImportPage: React.FC = () => {
                     value={destNewSubjectName}
                     onChange={(e) => setDestNewSubjectName(e.target.value)}
                     placeholder="Tên môn mới (VD: Tiếng Anh)"
+                    title={destNewSubjectName}
                     className="w-full mt-1.5 px-3 py-1.5 rounded-lg bg-brand-bg text-surface-primary text-xs font-medium border border-brand-border"
                   />
                 )}
@@ -1525,10 +1810,11 @@ export const ImportPage: React.FC = () => {
 
               {/* Topic Destination */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-black text-surface-primary">
+                <label htmlFor="dest-topic-select" className="block text-xs font-black text-surface-primary">
                   2. Chuyên đề
                 </label>
                 <select
+                  id="dest-topic-select"
                   value={destTopicMode === 'existing' ? destSelectedTopicId : 'NEW'}
                   onChange={(e) => {
                     if (e.target.value === 'NEW') {
@@ -1538,10 +1824,11 @@ export const ImportPage: React.FC = () => {
                       setDestSelectedTopicId(e.target.value);
                     }
                   }}
-                  className="w-full px-3 py-2 rounded-xl bg-brand-bg text-surface-primary text-xs font-bold border-2 border-brand-border outline-none focus:border-brand-blue"
+                  title={topics.find((t) => t.id === destSelectedTopicId)?.name || 'Chọn chuyên đề'}
+                  className="w-full px-3 py-2 rounded-xl bg-brand-bg text-surface-primary text-xs font-bold border-2 border-brand-border outline-none focus:border-brand-blue truncate"
                 >
                   {topics.map((t) => (
-                    <option key={t.id} value={t.id}>
+                    <option key={t.id} value={t.id} title={t.name}>
                       {t.name}
                     </option>
                   ))}
@@ -1553,6 +1840,7 @@ export const ImportPage: React.FC = () => {
                     value={destNewTopicName}
                     onChange={(e) => setDestNewTopicName(e.target.value)}
                     placeholder="Tên chuyên đề mới"
+                    title={destNewTopicName}
                     className="w-full mt-1.5 px-3 py-1.5 rounded-lg bg-brand-bg text-surface-primary text-xs font-medium border border-brand-border"
                   />
                 )}
@@ -1560,14 +1848,16 @@ export const ImportPage: React.FC = () => {
 
               {/* Set Destination */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-black text-surface-primary">
+                <label htmlFor="dest-set-input" className="block text-xs font-black text-surface-primary">
                   3. Tên Bài học / Bộ đề
                 </label>
                 <input
+                  id="dest-set-input"
                   type="text"
                   value={destSetName}
                   onChange={(e) => setDestSetName(e.target.value)}
                   placeholder="Ví dụ: Bài tập áp dụng"
+                  title={destSetName}
                   className="w-full px-3 py-2 rounded-xl bg-brand-bg text-surface-primary text-xs font-bold border-2 border-brand-border outline-none focus:border-brand-blue"
                 />
               </div>
@@ -1603,6 +1893,20 @@ export const ImportPage: React.FC = () => {
           </Card>
         </div>
       )}
+
+      {/* =========================================================================
+          DRAWER / MODAL: DANH SÁCH CÂU HỎI CHO MOBILE (<1100px)
+          ========================================================================= */}
+      <Modal
+        isOpen={isQuestionDrawerOpen}
+        onClose={() => setIsQuestionDrawerOpen(false)}
+        title="Danh sách câu hỏi & Bộ lọc"
+        size="md"
+      >
+        <div className="w-full max-h-[70vh] flex flex-col">
+          {renderQuestionList()}
+        </div>
+      </Modal>
 
       {/* =========================================================================
           MODAL: NHẬP ĐÁP ÁN NHANH (QUICK ANSWER INPUT & AI DIFF COMPARISON)

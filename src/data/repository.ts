@@ -14,6 +14,7 @@ import {
   UserSettings,
   FullBackupData,
   V1ImportPackage,
+  FormulaGroup,
 } from './types';
 
 export interface DataRepository {
@@ -89,6 +90,13 @@ export interface DataRepository {
   getSettings(): Promise<UserSettings>;
   updateSettings(settings: Partial<UserSettings>): Promise<UserSettings>;
   saveSettings(settings: Partial<UserSettings> & Partial<UserStats>): Promise<void>;
+
+  // ----------------------------------------------------------------------------
+  // Formula Groups
+  // ----------------------------------------------------------------------------
+  getFormulaGroups(topicId?: string): Promise<FormulaGroup[]>;
+  saveFormulaGroup(group: FormulaGroup): Promise<void>;
+  deleteFormulaGroup(id: string): Promise<void>;
 
   // ----------------------------------------------------------------------------
   // Backup, Migration & Utilities

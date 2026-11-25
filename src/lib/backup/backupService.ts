@@ -16,7 +16,10 @@ import {
   UserStats,
   UserSettings,
   V1ImportPackage,
+  FormulaGroup,
 } from '../../data/types';
+import { migrateAllFormulas } from '../formulaMigration';
+import { useCurriculumStore } from '../../store/curriculumStore';
 
 export interface BackupSummary {
   subjectsCount: number;
@@ -29,6 +32,8 @@ export interface BackupSummary {
   hasUserStats: boolean;
   hasSettings: boolean;
   claimedChestsCount?: number;
+  formulaGroupsCount?: number;
+  lastTopicBySubjectCount?: number;
 }
 
 export type BackupFormat = 'full_backup' | 'legacy_library' | 'v1_package' | 'unknown';
@@ -118,6 +123,7 @@ export async function exportFullBackup(repo?: DataRepository): Promise<FullBacku
     questionAttempts,
     userStats,
     rawSettings,
+    formulaGroups,
   ] = await Promise.all([
     activeRepo.getSubjects(),
     activeRepo.getTopics(),
@@ -128,6 +134,7 @@ export async function exportFullBackup(repo?: DataRepository): Promise<FullBacku
     activeRepo.getAttempts(),
     activeRepo.getUserStats(),
     activeRepo.getSettings(),
+    activeRepo.getFormulaGroups ? activeRepo.getFormulaGroups() : Promise.resolve([]),
   ]);
 
   // Strip Gemini API key for absolute security
@@ -138,8 +145,33 @@ export async function exportFullBackup(repo?: DataRepository): Promise<FullBacku
 
   const topicChestFlags = getStoredTopicChestFlags();
 
+  let lastTopicBySubject: Record<string, string> = {};
+  let selectedSubjectId: string | null = null;
+  let selectedTopicId: string | null = null;
+
+  try {
+    const cur = useCurriculumStore.getState();
+    lastTopicBySubject = { ...cur.lastTopicBySubject };
+    selectedSubjectId = cur.selectedSubjectId;
+    selectedTopicId = cur.selectedTopicId;
+  } catch {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('vact_active_curriculum');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          lastTopicBySubject = parsed.state?.lastTopicBySubject || parsed.lastTopicBySubject || {};
+          selectedSubjectId = parsed.state?.selectedSubjectId || parsed.selectedSubjectId || null;
+          selectedTopicId = parsed.state?.selectedTopicId || parsed.selectedTopicId || null;
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   const backupData: FullBackupData = {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     subjects: subjects || [],
     topics: topics || [],
@@ -151,6 +183,13 @@ export async function exportFullBackup(repo?: DataRepository): Promise<FullBacku
     userStats,
     settings: sanitizedSettings,
     topicChestFlags,
+    formulaGroups: formulaGroups || [],
+    lastTopicBySubject,
+    activeCurriculum: {
+      selectedSubjectId,
+      selectedTopicId,
+      lastTopicBySubject,
+    },
   };
 
   return backupData;
@@ -230,7 +269,7 @@ export function inspectBackupFile(content: string | object): BackupInspectionRes
 
   // Check 1: Full Backup format
   if (
-    parsed.version === 1 &&
+    (parsed.version === 1 || parsed.version === 2) &&
     Array.isArray(parsed.subjects) &&
     (Array.isArray(parsed.sets) || Array.isArray(parsed.questions))
   ) {
@@ -249,6 +288,8 @@ export function inspectBackupFile(content: string | object): BackupInspectionRes
       hasUserStats: Boolean(parsed.userStats),
       hasSettings: Boolean(parsed.settings),
       claimedChestsCount: Array.isArray(parsed.topicChestFlags) ? parsed.topicChestFlags.length : 0,
+      formulaGroupsCount: Array.isArray(parsed.formulaGroups) ? parsed.formulaGroups.length : 0,
+      lastTopicBySubjectCount: parsed.lastTopicBySubject ? Object.keys(parsed.lastTopicBySubject).length : 0,
     };
 
     return {
@@ -364,7 +405,11 @@ export function convertLegacyToFullBackup(parsedData: any): FullBackupData {
   const questions: Question[] = [];
 
   // If already full backup
-  if (parsedData.version === 1 && Array.isArray(parsedData.subjects) && Array.isArray(parsedData.questions)) {
+  if (
+    (parsedData.version === 1 || parsedData.version === 2) &&
+    Array.isArray(parsedData.subjects) &&
+    Array.isArray(parsedData.questions)
+  ) {
     return parsedData;
   }
 
@@ -726,6 +771,66 @@ export async function restoreFullBackup(
       saveStoredTopicChestFlags(fullBackup.topicChestFlags);
     }
 
+    // 12. Restore or migrate formula groups
+    if (Array.isArray(fullBackup.formulaGroups) && fullBackup.formulaGroups.length > 0) {
+      for (const fg of fullBackup.formulaGroups) {
+        if (activeRepo.saveFormulaGroup) {
+          await activeRepo.saveFormulaGroup(fg);
+        }
+      }
+    } else {
+      // Legacy backup without formulaGroups -> auto run formula migration!
+      try {
+        await migrateAllFormulas(activeRepo);
+      } catch (err) {
+        console.warn('Failed to migrate formulas during replace restore:', err);
+      }
+    }
+
+    // 13. Restore lastTopicBySubject and active curriculum
+    const restoredLastTopics: Record<string, string> = {
+      ...(fullBackup.lastTopicBySubject || fullBackup.activeCurriculum?.lastTopicBySubject || {}),
+    };
+
+    // If subject is missing from lastTopicBySubject, pick first topic of that subject
+    for (const subj of fullBackup.subjects || []) {
+      if (!restoredLastTopics[subj.id]) {
+        const subjTopics = (fullBackup.topics || []).filter((t) => t.subjectId === subj.id);
+        if (subjTopics.length > 0) {
+          restoredLastTopics[subj.id] = subjTopics[0].id;
+        }
+      }
+    }
+
+    try {
+      const curStore = useCurriculumStore.getState();
+      const targetSubId =
+        fullBackup.activeCurriculum?.selectedSubjectId ||
+        (fullBackup.subjects?.length > 0 ? fullBackup.subjects[0].id : null);
+      const targetTopId =
+        fullBackup.activeCurriculum?.selectedTopicId ||
+        (targetSubId ? restoredLastTopics[targetSubId] : null);
+
+      curStore.setLastTopicBySubject(restoredLastTopics);
+      curStore.setCurriculum(targetSubId, targetTopId);
+
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(
+          'vact_active_curriculum',
+          JSON.stringify({
+            state: {
+              selectedSubjectId: targetSubId,
+              selectedTopicId: targetTopId,
+              lastTopicBySubject: restoredLastTopics,
+            },
+            version: 0,
+          })
+        );
+      }
+    } catch (err) {
+      console.warn('Failed to restore active curriculum in localStorage:', err);
+    }
+
     return {
       success: true,
       mode: 'replace',
@@ -884,6 +989,37 @@ export async function restoreFullBackup(
     const combined = Array.from(new Set([...currentFlags, ...fullBackup.topicChestFlags]));
     saveStoredTopicChestFlags(combined);
   }
+
+  // 11. Merge Formula Groups
+  if (Array.isArray(fullBackup.formulaGroups) && fullBackup.formulaGroups.length > 0) {
+    for (const fg of fullBackup.formulaGroups) {
+      if (activeRepo.saveFormulaGroup) {
+        await activeRepo.saveFormulaGroup(fg);
+      }
+    }
+  } else {
+    try {
+      await migrateAllFormulas(activeRepo);
+    } catch (e) {
+      console.warn('Failed to migrate formulas during merge restore:', e);
+    }
+  }
+
+  // 12. Merge lastTopicBySubject
+  const curStore = useCurriculumStore.getState();
+  const mergedLastTopics = {
+    ...curStore.lastTopicBySubject,
+    ...(fullBackup.lastTopicBySubject || fullBackup.activeCurriculum?.lastTopicBySubject || {}),
+  };
+  for (const subj of fullBackup.subjects || []) {
+    if (!mergedLastTopics[subj.id]) {
+      const subjTopics = (fullBackup.topics || []).filter((t) => t.subjectId === subj.id);
+      if (subjTopics.length > 0) {
+        mergedLastTopics[subj.id] = subjTopics[0].id;
+      }
+    }
+  }
+  curStore.setLastTopicBySubject(mergedLastTopics);
 
   return {
     success: true,

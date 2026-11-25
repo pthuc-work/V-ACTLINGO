@@ -15,8 +15,10 @@ import {
 } from 'lucide-react';
 import { Card, Chip, Button, ProgressBar } from '../components/ui';
 import { getRepository } from '../data';
-import { Question, QuestionAttempt, UserStats } from '../data/types';
+import { Question, QuestionAttempt, UserStats, Topic } from '../data/types';
 import { calculateCategoryStats, CategoryStat, CategoryStatsSummary } from '../lib/categoryStats';
+import { calculateTopicProgress, TopicProgressResult } from '../lib/progress';
+import { useCurriculumStore } from '../store/curriculumStore';
 import { SpacedRepetitionWidget } from '../components/SpacedRepetitionWidget';
 
 export const StatsPage: React.FC = () => {
@@ -25,6 +27,33 @@ export const StatsPage: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [attempts, setAttempts] = useState<QuestionAttempt[]>([]);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
+
+  const { selectedTopicId } = useCurriculumStore();
+  const [topicProgress, setTopicProgress] = useState<TopicProgressResult | null>(null);
+  const [currentTopic, setCurrentTopic] = useState<Topic | null>(null);
+
+  useEffect(() => {
+    async function loadTopicProg() {
+      if (!selectedTopicId) {
+        setTopicProgress(null);
+        setCurrentTopic(null);
+        return;
+      }
+      try {
+        const repo = getRepository();
+        const [top, sets, progresses] = await Promise.all([
+          repo.getTopic(selectedTopicId),
+          repo.getSets(selectedTopicId),
+          repo.getAllSetProgress(),
+        ]);
+        setCurrentTopic(top);
+        setTopicProgress(calculateTopicProgress(sets, progresses));
+      } catch (e) {
+        console.warn('Failed to load topic progress in stats:', e);
+      }
+    }
+    loadTopicProg();
+  }, [selectedTopicId]);
 
   useEffect(() => {
     async function loadData() {
@@ -85,6 +114,41 @@ export const StatsPage: React.FC = () => {
         </p>
       </div>
 
+      {/* Current Active Topic Progress Card */}
+      {topicProgress && currentTopic && (
+        <Card variant="default" padding="md" className="border border-brand-border bg-brand-card">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+            <div>
+              <span className="text-[11px] font-black uppercase text-brand-blue tracking-wider">
+                Chuyên đề hiện tại
+              </span>
+              <h3 className="text-base font-black text-surface-primary">
+                {currentTopic.name}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <Chip variant="primary" size="sm">
+                {topicProgress.formattedSetsProgress}
+              </Chip>
+              <Chip variant="neutral" size="sm">
+                {topicProgress.formattedQuestionsProgress}
+              </Chip>
+            </div>
+          </div>
+          <ProgressBar
+            value={topicProgress.completedSets}
+            max={Math.max(1, topicProgress.totalSets)}
+            color="blue"
+            size="sm"
+            className="mb-2"
+          />
+          <div className="flex items-center justify-between text-xs font-bold text-surface-secondary">
+            <span>Độ chính xác trung bình chuyên đề:</span>
+            <span className="font-black text-brand-green">{topicProgress.formattedAccuracy}</span>
+          </div>
+        </Card>
+      )}
+
       {/* Top Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card variant="3d" padding="sm" className="border-brand-blue/30">
@@ -93,7 +157,7 @@ export const StatsPage: React.FC = () => {
             <Target className="w-4 h-4 text-brand-blue" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-brand-navy dark:text-brand-blue mt-1">
-            {statsSummary.overallAccuracy}%
+            {statsSummary.totalAttemptsCount > 0 ? `${statsSummary.overallAccuracy}%` : '—'}
           </div>
           <div className="text-[10px] font-semibold text-surface-muted mt-0.5">
             {statsSummary.totalCorrectCount} / {statsSummary.totalAttemptsCount} câu đúng

@@ -67,3 +67,33 @@ Tài liệu này lưu lại các quyết định kỹ thuật được đưa ra 
 - **Quyết định**: Module `geminiProvider.ts` được cô lập và ẩn hoàn toàn trên giao diện người dùng theo mặc định (`VITE_ENABLE_GEMINI=false`). Khóa API được lưu cục bộ trong `localStorage` trên máy người dùng, không bao giờ gửi lên Supabase hay đưa vào file sao lưu.
 - **Lý do**: Tuân thủ tiêu chí Đợt 1 & Đợt 3 ưu tiên trải nghiệm Chatbot không tốn chi phí API, đồng thời chuẩn bị sẵn sàng nền tảng mở rộng khi cần kích hoạt.
 
+---
+
+### [DEC-015] Khung Layout Toàn App & Responsive 4 Breakpoints (Đợt 4)
+- **Quyết định**: Xây dựng lại `AppShell.tsx` chiếm 100% chiều rộng viewport và đúng 100dvh, loại bỏ max-width ở root wrapper. Thiết lập 4 breakpoints chuẩn hóa: desktop-wide (≥1440px), desktop-compact (1100-1439px), tablet-compact (768-1099px), mobile (<768px).
+- **Lý do**: Tận dụng tối đa không gian màn hình lớn (1536px, 1920px, 2560px), đồng thời tối ưu hóa giao diện di động với bottom nav 5 mục chính và vùng chạm tối thiểu 44px. Panel phải chỉ xuất hiện ở các route học tập (`/`, `/practice`, `/review`, `/stats`) và chuyển thành drawer khi ở màn hình hẹp.
+
+### [DEC-016] Giao diện Nhập liệu Toàn màn hình & Tách biệt Trải nghiệm (Đợt 4)
+- **Quyết định**: Mở rộng toàn trang cho `ImportPage.tsx`, bổ sung hỗ trợ kéo thả file Excel (.xlsx), CSV, TXT, JSON, xem trước bảng dữ liệu có thể sửa trực tiếp (Editable Table), modal ánh xạ cột linh hoạt và commit hàng loạt có thanh tiến trình.
+- **Lý do**: Đem lại trải nghiệm nhập liệu chuyên nghiệp, dễ kiểm tra đối chiếu đề thi thực tế trước khi lưu vào ngân hàng bài học.
+
+### [DEC-017] Hệ thống Sổ tay Công thức Chuyên đề & Migration Tự động (Đợt 4)
+- **Quyết định**: Chuẩn hóa dữ liệu công thức thành `FormulaGroup` gồm `topicId`, `title`, `order`, `items` (hỗ trợ KaTeX LaTeX). Cung cấp chế độ xem kép (Table view và Card view), TOC jump chips, và modal xem nhanh công thức (`FormulaModal`) không làm gián đoạn trạng thái làm bài (timer, câu hỏi, phương án đã chọn). Tự động migrate công thức từ trường `formula` của câu hỏi cũ sang nhóm công thức mới mà không gây trùng lặp.
+- **Lý do**: Giúp học sinh tra cứu công thức nhanh chóng ngay trong lúc làm bài thi thử hoặc trên lộ trình học tập mà không bị mất tiến trình bài thi.
+
+### [DEC-018] Thống nhất Nguồn Chân Lý Chuyển Môn & Khôi phục Topic (Đợt 4)
+- **Quyết định**: `useCurriculumStore` (persist vào `vact_active_curriculum`) là nguồn duy nhất lưu `{ selectedSubjectId, selectedTopicId, lastTopicBySubject }`. Khi chuyển môn A → B → A, tự động khôi phục đúng chuyên đề đã học của môn A; nếu môn chưa từng học thì chọn chuyên đề đầu tiên; nếu môn trống thì đặt `selectedTopicId = null`. Dropdown chỉ hiển thị các chuyên đề của môn đang chọn. Banner Lộ trình hiển thị `currentTopic.name` và `currentTopic.description` (không hardcode). Môn trống hiển thị Empty State chuẩn kèm nút Import.
+- **Lý do**: Khắc phục triệt để lỗi chuyển môn bị reset về câu điều kiện hoặc lộ trình hiển thị sai chuyên đề của môn khác.
+
+### [DEC-019] Chuẩn hóa Cách Tính Tiến độ Chuyên đề (Đợt 4)
+- **Quyết định**: Thống nhất hàm pure `calculateTopicProgress(sets, progresses)` trên toàn bộ hệ thống (AppShell, RoadmapPage, StatsPage):
+  - Tiến độ bài: `completedSets / totalSets` (ví dụ: '1/3 bài (33%)').
+  - Tiến độ câu: `attemptedQuestions / totalQuestions` (ví dụ: '30/90 câu').
+  - Độ chính xác trung bình: `totalScore / attemptedQuestions`. Nếu chưa làm câu nào (`attemptedQuestions === 0`), trả về `'—'` (em-dash) thay vì 0% hay 100%.
+- **Lý do**: Tránh tình trạng độ chính xác hiển thị ảo 100% hoặc 0% khi người dùng chưa làm bài, đồng thời đảm bảo số liệu thống kê ăn khớp 100% giữa panel phải và các trang chi tiết.
+
+### [DEC-020] Định dạng Sao lưu Version 2 & Tương thích Ngược 100% (Đợt 4)
+- **Quyết định**: Nâng cấp định dạng sao lưu lên `version: 2`, bổ sung mảng `formulaGroups` và bản đồ `lastTopicBySubject`. Cơ chế khôi phục tương thích ngược 100%: nếu gặp file backup v1 cũ chưa có các trường này, hệ thống tự động chạy migrate công thức và tự động chọn chuyên đề đầu tiên cho các môn bị thiếu.
+- **Lý do**: Đảm bảo chu trình sao lưu và khôi phục giữ nguyên vẹn 100% dữ liệu công thức và trạng thái học tập của người dùng trên mọi thiết bị.
+
+

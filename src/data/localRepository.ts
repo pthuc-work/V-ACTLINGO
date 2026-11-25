@@ -16,11 +16,12 @@ import {
   UserSettings,
   FullBackupData,
   V1ImportPackage,
+  FormulaGroup,
 } from './types';
 
 export const LOCAL_USER_ID = 'local-user';
 const DB_NAME = 'vact_hub_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export class LocalRepository implements DataRepository {
   public readonly mode = 'local' as const;
@@ -36,6 +37,7 @@ export class LocalRepository implements DataRepository {
     userStats: new Map(),
     settings: new Map(),
     syncQueue: new Map(),
+    formulaGroups: new Map(),
   };
 
   constructor() {
@@ -94,6 +96,11 @@ export class LocalRepository implements DataRepository {
         if (!db.objectStoreNames.contains('syncQueue')) {
           const sqStore = db.createObjectStore('syncQueue', { keyPath: 'id' });
           sqStore.createIndex('createdAt', 'createdAt');
+        }
+        if (!db.objectStoreNames.contains('formulaGroups')) {
+          const fgStore = db.createObjectStore('formulaGroups', { keyPath: 'id' });
+          fgStore.createIndex('topicId', 'topicId');
+          fgStore.createIndex('order', 'order');
         }
       },
     });
@@ -668,6 +675,23 @@ export class LocalRepository implements DataRepository {
   }
 
   // ----------------------------------------------------------------------------
+  // Formula Groups
+  // ----------------------------------------------------------------------------
+  async getFormulaGroups(topicId?: string): Promise<FormulaGroup[]> {
+    const all = (await this.getStoreItems('formulaGroups')) as FormulaGroup[];
+    const filtered = topicId ? all.filter((g) => g.topicId === topicId) : all;
+    return filtered.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }
+
+  async saveFormulaGroup(group: FormulaGroup): Promise<void> {
+    await this.putStoreItem('formulaGroups', group);
+  }
+
+  async deleteFormulaGroup(id: string): Promise<void> {
+    await this.deleteStoreItem('formulaGroups', id);
+  }
+
+  // ----------------------------------------------------------------------------
   // Import / Export / Backup
   // ----------------------------------------------------------------------------
   async exportFullBackup(): Promise<FullBackupData> {
@@ -681,6 +705,7 @@ export class LocalRepository implements DataRepository {
       questionAttempts,
       userStats,
       settings,
+      formulaGroups,
     ] = await Promise.all([
       this.getSubjects(),
       this.getTopics(),
@@ -691,6 +716,7 @@ export class LocalRepository implements DataRepository {
       this.getAttempts(),
       this.getUserStats(),
       this.getSettings(),
+      this.getFormulaGroups(),
     ]);
 
     return {
@@ -705,6 +731,7 @@ export class LocalRepository implements DataRepository {
       questionAttempts,
       userStats,
       settings,
+      formulaGroups,
     };
   }
 
@@ -720,6 +747,11 @@ export class LocalRepository implements DataRepository {
     for (const item of backup.questionAttempts || []) await this.putStoreItem('questionAttempts', item);
     if (backup.userStats) await this.putStoreItem('userStats', backup.userStats);
     if (backup.settings) await this.putStoreItem('settings', backup.settings);
+    if (backup.formulaGroups) {
+      for (const group of backup.formulaGroups) {
+        await this.putStoreItem('formulaGroups', group);
+      }
+    }
   }
 
   async importV1Package(pkg: V1ImportPackage): Promise<{ subjectId: string; topicId: string; setId: string; questionCount: number }> {
@@ -840,6 +872,7 @@ export class LocalRepository implements DataRepository {
       'userStats',
       'settings',
       'syncQueue',
+      'formulaGroups',
     ];
     if (this.isIDBAvailable()) {
       const db = await this.dbPromise!;
